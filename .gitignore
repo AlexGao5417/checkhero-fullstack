@@ -1,0 +1,12 @@
+.env
+__pycache__/
+*.pyc
+.DS_Store
+*.log
+.vscode/
+.idea/
+.cursor/
+.roo/
+.taskmaster/
+frontend/node_modules/
+sample-pdf/

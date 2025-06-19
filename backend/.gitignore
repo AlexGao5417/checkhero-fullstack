@@ -1,0 +1,5 @@
+__pycache__/
+*.pyc
+checkhero.db
+venv/
+.env 
