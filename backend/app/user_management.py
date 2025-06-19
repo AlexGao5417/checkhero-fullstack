@@ -1,0 +1,102 @@
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy.orm import Session
+from app import models, database
+from passlib.context import CryptContext
+from pydantic import BaseModel, EmailStr
+from typing import List, Optional
+from app.utils import get_password_hash
+
+router = APIRouter()
+
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+class UserOut(BaseModel):
+    id: int
+    username: str
+    email: EmailStr
+    phone: Optional[str]
+    user_type: str
+    class Config:
+        orm_mode = True
+
+class UserCreate(BaseModel):
+    username: str
+    email: EmailStr
+    password: str
+    phone: Optional[str] = None
+    user_type: str = 'agent'
+
+class UserUpdate(BaseModel):
+    username: Optional[str]
+    email: Optional[EmailStr]
+    password: Optional[str]
+    phone: Optional[str]
+    user_type: Optional[str]
+
+@router.get("/", response_model=List[UserOut])
+def list_users(
+    skip: int = 0,
+    limit: int = 10,
+    username: Optional[str] = Query(None),
+    email: Optional[str] = Query(None),
+    user_type: Optional[str] = Query(None),
+    db: Session = Depends(database.get_db)
+):
+    query = db.query(models.User)
+    if username:
+        query = query.filter(models.User.username.ilike(f"%{username}%"))
+    if email:
+        query = query.filter(models.User.email.ilike(f"%{email}%"))
+    if user_type:
+        query = query.filter(models.User.user_type == user_type)
+    users = query.offset(skip).limit(limit).all()
+    return users
+
+@router.post("/", response_model=UserOut)
+def create_user(user: UserCreate, db: Session = Depends(database.get_db)):
+    if db.query(models.User).filter(models.User.email == user.email).first():
+        raise HTTPException(status_code=400, detail="Email already registered")
+    if db.query(models.User).filter(models.User.username == user.username).first():
+        raise HTTPException(status_code=400, detail="Username already registered")
+    hashed_password = get_password_hash(user.password)
+    db_user = models.User(
+        username=user.username,
+        email=user.email,
+        password_hash=hashed_password,
+        phone=user.phone,
+        user_type=user.user_type
+    )
+    db.add(db_user)
+    db.commit()
+    db.refresh(db_user)
+    return db_user
+
+@router.put("/{user_id}", response_model=UserOut)
+def update_user(user_id: int, user: UserUpdate, db: Session = Depends(database.get_db)):
+    db_user = db.query(models.User).filter(models.User.id == user_id).first()
+    if not db_user:
+        raise HTTPException(status_code=404, detail="User not found")
+    if user.username:
+        db_user.username = user.username
+    if user.email:
+        db_user.email = user.email
+    if user.password:
+        db_user.password_hash = get_password_hash(user.password)
+    if user.phone is not None:
+        db_user.phone = user.phone
+    if user.user_type:
+        db_user.user_type = user.user_type
+    db.commit()
+    db.refresh(db_user)
+    return db_user
+
+@router.delete("/{user_id}")
+def delete_user(user_id: int, db: Session = Depends(database.get_db)):
+    db_user = db.query(models.User).filter(models.User.id == user_id).first()
+    if not db_user:
+        raise HTTPException(status_code=404, detail="User not found")
+    db.delete(db_user)
+    db.commit()
+    return {"detail": "User deleted"}
+
+# Reports API will be implemented in a new file: reports.py 

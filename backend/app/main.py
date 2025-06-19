@@ -2,13 +2,15 @@ from fastapi import FastAPI, UploadFile, File, Form, Request
 from fastapi.responses import FileResponse, StreamingResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from app.auth import router as auth_router
+from app.user_management import router as user_management_router
+from app.reports import router as reports_router
 import os
 import tempfile
 import uuid
 import json
 import sys
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from backend.app.checkhero import generate_report
+from app.checkhero import generate_report
 
 app = FastAPI(title="CheckHero Backend API")
 
@@ -22,6 +24,8 @@ app.add_middleware(
 )
 
 app.include_router(auth_router, prefix="/auth", tags=["auth"])
+app.include_router(user_management_router, prefix="/users", tags=["users"])
+app.include_router(reports_router, prefix="/reports", tags=["reports"])
 
 @app.get("/")
 def root():

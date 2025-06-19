@@ -7,6 +7,8 @@ import CheckboxField from './components/Form/CheckboxField';
 import ImageDropzone from './components/Form/ImageDropzone';
 import { initialFormData } from './utils/formInitialState';
 import { downloadPdfFromBackend } from './utils/downloadPdf';
+import UserManagement from './components/Auth/UserManagement';
+import ReportsTable from './components/Reports/ReportsTable';
 
 const App = () => {
     const [currentPage, setCurrentPage] = useState('main');
@@ -41,6 +43,7 @@ const App = () => {
     const [addressWarning, setAddressWarning] = useState('');
     const [pdfLoading, setPdfLoading] = useState(false);
     const [pdfError, setPdfError] = useState('');
+    const [currentUser, setCurrentUser] = useState({ id: 101, user_type: 'admin' }); // Change user_type to 'electrician' to test logic
     useEffect(() => {
         try {
             localStorage.setItem('checkheroFormData', JSON.stringify(formData));
@@ -137,6 +140,37 @@ const App = () => {
         localStorage.removeItem('checkheroFormData');
         localStorage.removeItem('checkheroCurrentStep');
         console.log("All form fields cleared and progress reset.");
+    };
+    const handleEditReport = (report) => {
+        setFormData(prev => ({
+            ...prev,
+            propertyAddress: report.address || '',
+            reportDate: report.created_date || '',
+            publisher: report.publisher || '',
+            reviewer: report.reviewer || '',
+            status: report.status || '',
+            comment: report.comment || '',
+            electricalSafetyCheck: report.electricalSafetyCheck ?? false,
+            smokeSafetyCheck: report.smokeSafetyCheck ?? false,
+            installationExtent: report.installationExtent || prev.installationExtent,
+            visualInspection: report.visualInspection || prev.visualInspection,
+            polarityTesting: report.polarityTesting || prev.polarityTesting,
+            earthContinuityTesting: report.earthContinuityTesting || prev.earthContinuityTesting,
+            rcdTestingPassed: report.rcdTestingPassed ?? false,
+            smokeAlarmsWorking: report.smokeAlarmsWorking ?? false,
+            nextSmokeAlarmCheckDate: report.nextSmokeAlarmCheckDate || '',
+            smokeAlarmDetails: report.smokeAlarmDetails || [],
+            observation: report.observation || '',
+            recommendation: report.recommendation || '',
+            images: report.images || [],
+            electricalSafetyCheckCompletedBy: report.electricalSafetyCheckCompletedBy || '',
+            licenceNumber: report.licenceNumber || '',
+            inspectionDate: report.inspectionDate || '',
+            nextInspectionDueDate: report.nextInspectionDueDate || '',
+            signatureDate: report.signatureDate || '',
+        }));
+        setActiveSection('form');
+        setCurrentStep(0);
     };
     const renderFormStep = () => {
         switch (currentStep) {
@@ -380,10 +414,18 @@ const App = () => {
                         >
                             <i className="fas fa-users mr-0 md:mr-3 text-lg md:text-base"></i><span className="hidden md:inline">User Management</span>
                         </button>
+                        <button
+                            onClick={() => setActiveSection('reports')}
+                            className={`w-full flex items-center justify-center md:justify-start py-3 px-5 rounded-xl transition-all duration-300 transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-gray-900 ${
+                                activeSection === 'reports' ? 'bg-blue-700 text-white shadow-lg' : 'bg-gray-800 hover:bg-gray-700 text-gray-300'
+                            }`}
+                        >
+                            <i className="fas fa-file-alt mr-0 md:mr-3 text-lg md:text-base"></i><span className="hidden md:inline">Reports</span>
+                        </button>
                     </nav>
                 </aside>
                 <main className="flex-1 p-6 md:p-10 flex items-start justify-center">
-                    <div className="bg-white rounded-2xl shadow-3xl p-6 md:p-10 w-full max-w-4xl transition-all duration-300 ease-in-out transform hover:shadow-4xl">
+                    <div className="bg-white rounded-2xl shadow-3xl p-6 md:p-10 w-full transition-all duration-300 ease-in-out transform hover:shadow-4xl" style={{ maxWidth: '1450px' }}>
                         {activeSection === 'form' && (
                             <>
                                 <h1 className="text-4xl font-extrabold text-gray-900 mb-8 text-center tracking-tight leading-tight">Electrical & Smoke Safety Report</h1>
@@ -427,16 +469,10 @@ const App = () => {
                             </>
                         )}
                         {activeSection === 'user-management' && (
-                            <div className="min-h-[400px] flex flex-col justify-center items-center p-8 bg-gray-50 rounded-xl shadow-inner border border-gray-200">
-                                <h1 className="text-4xl font-extrabold text-gray-900 mb-6 text-center">User Management</h1>
-                                <p className="text-lg text-gray-600 text-center max-w-md">
-                                    This section is currently under development. Here, you'll be able to manage user accounts, roles, and permissions for the CheckHero application.
-                                </p>
-                                <div className="mt-8 p-5 bg-yellow-100 border border-yellow-400 text-yellow-800 rounded-lg text-center shadow-md flex items-center">
-                                    <i className="fas fa-tools text-2xl mr-3"></i>
-                                    <p className="font-semibold">Future enhancement: User authentication and comprehensive management features will be integrated here!</p>
-                                </div>
-                            </div>
+                            <UserManagement />
+                        )}
+                        {activeSection === 'reports' && (
+                            <ReportsTable currentUser={currentUser} onEditReport={handleEditReport} />
                         )}
                     </div>
                 </main>
