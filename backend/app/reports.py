@@ -56,12 +56,17 @@ def get_dummy_reports(user_type, user_id):
 
 @router.get("/", response_model=List[ReportOut])
 def get_reports(
-    user_type: str = Query(...),
+    user_type_id: int = Query(...),
     user_id: int = Query(...),
     db: Session = Depends(database.get_db)
 ):
     # Try to fetch from DB, fallback to dummy if empty
     reports = db.query(models.Report).all()
+    # Get user type string from user_type_id
+    user_type = None
+    ut = db.query(models.UserType).filter(models.UserType.id == user_type_id).first()
+    if ut:
+        user_type = ut.type
     if not reports:
         reports = get_dummy_reports(user_type, user_id)
     result = []

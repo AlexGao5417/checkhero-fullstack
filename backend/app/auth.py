@@ -22,7 +22,7 @@ class UserCreate(BaseModel):
     email: str
     password: str
     phone: str = None
-    user_type: str = 'agent'
+    user_type_id: int
 
 class Token(BaseModel):
     access_token: str
@@ -39,7 +39,7 @@ def register(user: UserCreate, db: Session = Depends(database.get_db)):
         email=user.email,
         password_hash=hashed_password,
         phone=user.phone,
-        user_type=user.user_type
+        user_type_id=user.user_type_id
     )
     db.add(new_user)
     db.commit()

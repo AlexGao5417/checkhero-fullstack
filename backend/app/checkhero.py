@@ -234,4 +234,4 @@ dummy_form_data = {
         "nextInspectionDueDate": "2025-01-24",
         "signatureDate": "2024-01-24",
     }
-generate_report(dummy_form_data)
+# generate_report(dummy_form_data)

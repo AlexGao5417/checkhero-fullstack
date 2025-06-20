@@ -1,10 +1,14 @@
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text
-from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.dialects.sqlite import JSON as SQLiteJSON
 from datetime import datetime
 import json
+from sqlalchemy.ext.declarative import declarative_base
 
 Base = declarative_base()
+class UserType(Base):
+    __tablename__ = "user_types"
+    id = Column(Integer, primary_key=True, index=True)
+    type = Column(String, unique=True, nullable=False)  # admin, electrician, agent
 
 class User(Base):
     __tablename__ = "users"
@@ -14,7 +18,7 @@ class User(Base):
     password_hash = Column(String, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
     phone = Column(String, nullable=True)
-    user_type = Column(String, nullable=False, default='agent')
+    user_type_id = Column(Integer, ForeignKey('user_types.id'), nullable=True)
 
 class Report(Base):
     __tablename__ = "reports"

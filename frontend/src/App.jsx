@@ -43,7 +43,7 @@ const App = () => {
     const [addressWarning, setAddressWarning] = useState('');
     const [pdfLoading, setPdfLoading] = useState(false);
     const [pdfError, setPdfError] = useState('');
-    const [currentUser, setCurrentUser] = useState({ id: 101, user_type: 'admin' }); // Change user_type to 'electrician' to test logic
+    const [currentUser, setCurrentUser] = useState({ id: 101, user_type_id: 1, user_type: 'admin' }); // user_type_id: 1=admin, 2=agent, 3=electrician
     useEffect(() => {
         try {
             localStorage.setItem('checkheroFormData', JSON.stringify(formData));

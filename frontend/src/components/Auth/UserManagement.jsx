@@ -5,9 +5,9 @@ import axios from 'axios';
 const { Option } = Select;
 
 const userTypes = [
-  { value: 'admin', label: 'Admin' },
-  { value: 'agent', label: 'Agent' },
-  { value: 'electrician', label: 'Electrician' },
+  { value: 1, label: 'Admin' },
+  { value: 2, label: 'Agent' },
+  { value: 3, label: 'Electrician' },
 ];
 
 const PAGE_SIZE = 5;
@@ -33,6 +33,7 @@ const UserManagement = () => {
     try {
       const skip = (page - 1) * PAGE_SIZE;
       const params = { skip, limit: PAGE_SIZE };
+      params.user_type_id = '1';
       if (filters.username) params.username = filters.username;
       if (filters.email) params.email = filters.email;
       if (filters.user_type) params.user_type = filters.user_type;
@@ -105,16 +106,17 @@ const UserManagement = () => {
     }
   };
 
-  const handleOk = async () => {
+  const handleOk = async (values) => {
     try {
-      const values = await form.validateFields();
+      console.log('Received values of form: ', values);
+      values = await form.validateFields();
       if (isEdit && editingUser) {
         await axios.put(`${API_BASE}/users/${editingUser.key}`, {
           username: values.username,
           email: values.email,
           password: values.password || undefined,
           phone: values.phone,
-          user_type: values.userType,
+          user_type_id: values.user_type_id,
         });
         notification.success({ message: 'User updated' });
       } else {
@@ -123,7 +125,7 @@ const UserManagement = () => {
           email: values.email,
           password: values.password,
           phone: values.phone,
-          user_type: values.userType,
+          user_type_id: values.user_type_id,
         });
         notification.success({ message: 'User created' });
       }
@@ -143,7 +145,7 @@ const UserManagement = () => {
   const columns = [
     { title: 'Username', dataIndex: 'username', key: 'username' },
     { title: 'Email', dataIndex: 'email', key: 'email' },
-    { title: 'User Type', dataIndex: 'userType', key: 'userType', render: (type) => userTypes.find(u => u.value === type)?.label },
+    { title: 'User Type', dataIndex: 'user_type_id', key: 'user_type_id', render: (type) => userTypes.find(u => u.value === type)?.label },
     {
       title: 'Actions',
       key: 'actions',
@@ -157,6 +159,9 @@ const UserManagement = () => {
       ),
     },
   ];
+  const onCreate = async values => {
+    console.log('Received values of form: ', values);
+  };
 
   return (
     <div style={{ padding: 24 }}>
@@ -224,24 +229,55 @@ const UserManagement = () => {
         style={{ marginTop: 16, textAlign: 'right' }}
       />
       <Modal
-        title={isEdit ? 'Edit User' : 'Add User'}
         open={isModalVisible}
-        onOk={handleOk}
+        title={isEdit ? 'Edit User' : 'Add User'}
+        okText="Create"
+        cancelText="Cancel"
+        okButtonProps={{ autoFocus: true, htmlType: 'submit' }}
         onCancel={handleCancel}
-        width={600}
-        destroyOnClose
+        destroyOnHidden
+        modalRender={dom => (
+          <Form
+            layout="vertical"
+            form={form}
+            name="form_in_modal"
+            clearOnDestroy
+            onFinish={values => handleOk(values)}
+          >
+            {dom}
+          </Form>
+        )}
       >
-        <Form
-          form={form}
-          layout="vertical"
-          initialValues={{ userType: 'agent' }}
+        <Form.Item
+          name="username"
+          label="Username"
+          rules={[{ required: true, message: 'Please input the username!' }]}
         >
-          <Form.Item name="username" label="Username" rules={[{ required: true, message: 'Please input the username!' }]}> <Input /> </Form.Item>
-          {!isEdit && <Form.Item name="password" label="Password" rules={[{ required: true, message: 'Please input the password!' }]}> <Input.Password /> </Form.Item>}
-          <Form.Item name="email" label="Email" rules={[{ required: true, type: 'email', message: 'Please input a valid email!' }]}> <Input /> </Form.Item>
-          <Form.Item name="phone" label="Phone Number"> <Input /> </Form.Item>
-          <Form.Item name="userType" label="User Type" rules={[{ required: true, message: 'Please select a user type!' }]}> <Select> {userTypes.map(type => <Option key={type.value} value={type.value}>{type.label}</Option>)} </Select> </Form.Item>
-        </Form>
+          <Input />
+        </Form.Item>
+        <Form.Item
+          name="email"
+          label="Email"
+          rules={[{ required: true, message: 'Please input a valid email!', type: 'email' }]}
+        >
+          <Input />
+        </Form.Item>
+        {!isEdit && <Form.Item
+          name="password"
+          label="Password"
+          rules={[{ required: true, message: 'Please input a password!', type: 'password' }]}
+        >
+          <Input.Password />
+        </Form.Item>}
+        <Form.Item
+          name="phone"
+          label="Phone Number"
+        >
+          <Input />
+        </Form.Item>
+        <Form.Item name="user_type_id" label="User Type" rules={[{ required: true, message: 'Please select a user type!' }]}> 
+          <Select> {userTypes.map(type => <Option key={type.value} value={type.value}>{type.label}</Option>)} </Select> 
+        </Form.Item>
       </Modal>
     </div>
   );

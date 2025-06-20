@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Table, Button, Pagination, Tag, Space, Row, Col, Input, Select } from 'antd';
 
+// Map user_type_id to type string for demo
+const userTypeMap = { 1: 'admin', 2: 'agent', 3: 'electrician' };
+
 // Dummy data for demonstration
 const dummyReports = [
   {
@@ -135,7 +138,7 @@ const statusColors = {
 const PAGE_SIZE = 5;
 
 const ReportsTable = ({ currentUser, onEditReport }) => {
-  // currentUser: { id, user_type }
+  // currentUser: { id, user_type_id, user_type }
   const [reports, setReports] = useState([]);
   const [total, setTotal] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
@@ -148,12 +151,13 @@ const ReportsTable = ({ currentUser, onEditReport }) => {
   const publisherOptions = Array.from(new Set(dummyReports.map(r => r.publisher)));
   const reviewerOptions = Array.from(new Set(dummyReports.map(r => r.reviewer)));
 
-  // Simulate GET request on mount and when user_type/page/filters change
+  // Simulate GET request on mount and when user_type_id/page/filters change
   useEffect(() => {
     let filtered;
-    if (currentUser.user_type === 'admin') {
+    const user_type = userTypeMap[currentUser.user_type_id] || currentUser.user_type;
+    if (user_type === 'admin') {
       filtered = dummyReports;
-    } else if (currentUser.user_type === 'electrician') {
+    } else if (user_type === 'electrician') {
       filtered = dummyReports.filter(r => r.publisher_id === currentUser.id);
     } else {
       filtered = [];
@@ -195,7 +199,8 @@ const ReportsTable = ({ currentUser, onEditReport }) => {
       title: 'Actions',
       key: 'actions',
       render: (_, record) => {
-        if (record.status === 'approved' && currentUser.user_type === 'electrician') return null;
+        const user_type = userTypeMap[currentUser.user_type_id] || currentUser.user_type;
+        if (record.status === 'approved' && user_type === 'electrician') return null;
         return (
           <Space>
             <Button type="link" onClick={() => handleEdit(record)}>Edit</Button>

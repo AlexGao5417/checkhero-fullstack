@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from app import models, database
 from passlib.context import CryptContext
 from pydantic import BaseModel, EmailStr
@@ -15,7 +15,8 @@ class UserOut(BaseModel):
     username: str
     email: EmailStr
     phone: Optional[str]
-    user_type: str
+    user_type_id: Optional[int]
+    user_type: Optional[str] = None  # For display
     class Config:
         orm_mode = True
 
@@ -24,33 +25,39 @@ class UserCreate(BaseModel):
     email: EmailStr
     password: str
     phone: Optional[str] = None
-    user_type: str = 'agent'
+    user_type_id: int
 
 class UserUpdate(BaseModel):
     username: Optional[str]
     email: Optional[EmailStr]
     password: Optional[str]
     phone: Optional[str]
-    user_type: Optional[str]
+    user_type_id: Optional[int]
 
 @router.get("/", response_model=List[UserOut])
 def list_users(
     skip: int = 0,
     limit: int = 10,
-    username: Optional[str] = Query(None),
-    email: Optional[str] = Query(None),
-    user_type: Optional[str] = Query(None),
     db: Session = Depends(database.get_db)
 ):
     query = db.query(models.User)
-    if username:
-        query = query.filter(models.User.username.ilike(f"%{username}%"))
-    if email:
-        query = query.filter(models.User.email.ilike(f"%{email}%"))
-    if user_type:
-        query = query.filter(models.User.user_type == user_type)
     users = query.offset(skip).limit(limit).all()
-    return users
+    result = []
+    for u in users:
+        user_type_str = None
+        if u.user_type_id:
+            ut = db.query(models.UserType).filter(models.UserType.id == u.user_type_id).first()
+            if ut:
+                user_type_str = ut.type
+        result.append(UserOut(
+            id=u.id,
+            username=u.username,
+            email=u.email,
+            phone=u.phone,
+            user_type_id=u.user_type_id,
+            user_type=user_type_str
+        ))
+    return result
 
 @router.post("/", response_model=UserOut)
 def create_user(user: UserCreate, db: Session = Depends(database.get_db)):
@@ -64,12 +71,24 @@ def create_user(user: UserCreate, db: Session = Depends(database.get_db)):
         email=user.email,
         password_hash=hashed_password,
         phone=user.phone,
-        user_type=user.user_type
+        user_type_id=user.user_type_id
     )
     db.add(db_user)
     db.commit()
     db.refresh(db_user)
-    return db_user
+    user_type_str = None
+    if db_user.user_type_id:
+        ut = db.query(models.UserType).filter(models.UserType.id == db_user.user_type_id).first()
+        if ut:
+            user_type_str = ut.type
+    return UserOut(
+        id=db_user.id,
+        username=db_user.username,
+        email=db_user.email,
+        phone=db_user.phone,
+        user_type_id=db_user.user_type_id,
+        user_type=user_type_str
+    )
 
 @router.put("/{user_id}", response_model=UserOut)
 def update_user(user_id: int, user: UserUpdate, db: Session = Depends(database.get_db)):
@@ -84,11 +103,23 @@ def update_user(user_id: int, user: UserUpdate, db: Session = Depends(database.g
         db_user.password_hash = get_password_hash(user.password)
     if user.phone is not None:
         db_user.phone = user.phone
-    if user.user_type:
-        db_user.user_type = user.user_type
+    if user.user_type_id is not None:
+        db_user.user_type_id = user.user_type_id
     db.commit()
     db.refresh(db_user)
-    return db_user
+    user_type_str = None
+    if db_user.user_type_id:
+        ut = db.query(models.UserType).filter(models.UserType.id == db_user.user_type_id).first()
+        if ut:
+            user_type_str = ut.type
+    return UserOut(
+        id=db_user.id,
+        username=db_user.username,
+        email=db_user.email,
+        phone=db_user.phone,
+        user_type_id=db_user.user_type_id,
+        user_type=user_type_str
+    )
 
 @router.delete("/{user_id}")
 def delete_user(user_id: int, db: Session = Depends(database.get_db)):

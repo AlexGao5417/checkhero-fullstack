@@ -11,6 +11,9 @@ import json
 import sys
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from app.checkhero import generate_report
+from sqlalchemy.orm import Session
+from app.database import engine, SessionLocal
+from app import auth, user_management, reports, checkhero, models
 
 app = FastAPI(title="CheckHero Backend API")
 
@@ -23,10 +26,24 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+def create_initial_user_types():
+    db: Session = SessionLocal()
+    try:
+        if db.query(models.UserType).count() == 0:
+            types = [
+                models.UserType(id=1, type="admin"),
+                models.UserType(id=2, type="agent"),
+                models.UserType(id=3, type="electrician")
+            ]
+            db.add_all(types)
+            db.commit()
+    finally:
+        db.close()
+
 app.include_router(auth_router, prefix="/auth", tags=["auth"])
 app.include_router(user_management_router, prefix="/users", tags=["users"])
 app.include_router(reports_router, prefix="/reports", tags=["reports"])
-
+create_initial_user_types()
 @app.get("/")
 def root():
     return {"message": "CheckHero backend is running!"}
