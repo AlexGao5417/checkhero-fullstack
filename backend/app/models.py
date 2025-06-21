@@ -3,6 +3,8 @@ from sqlalchemy.dialects.sqlite import JSON as SQLiteJSON
 from datetime import datetime
 import json
 from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+from typing import Optional
 
 Base = declarative_base()
 class UserType(Base):
@@ -19,19 +21,22 @@ class User(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     phone = Column(String, nullable=True)
     user_type_id = Column(Integer, ForeignKey('user_types.id'), nullable=True)
+    reports = relationship("Report", foreign_keys='[Report.publisher_id]', back_populates="publisher")
 
 class Report(Base):
     __tablename__ = "reports"
-    id = Column(Integer, primary_key=True, index=True)
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
     address = Column(String, nullable=False)
-    publisher_id = Column(Integer, ForeignKey('users.id'), nullable=False)
-    publisher = Column(String, nullable=False)
+    publisher_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
+    publisher: Mapped["User"] = relationship(foreign_keys=[publisher_id], back_populates="reports")
     created_date = Column(String, nullable=False)
-    review_date = Column(String, nullable=True)
-    status = Column(String, nullable=False, default='draft')
-    comment = Column(String, nullable=True)
-    reviewer = Column(String, nullable=True)
-    form_data = Column(Text, nullable=True)  # Store all form fields as JSON string 
+    review_date: Mapped[Optional[datetime]]
+    status: Mapped[str] = mapped_column(String, default='draft')
+    comment: Mapped[Optional[str]]
+    reviewer_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id"), nullable=True)
+    reviewer: Mapped["User"] = relationship(foreign_keys=[reviewer_id])
+    form_data: Mapped[dict] = mapped_column(SQLiteJSON)
+    pdf_url: Mapped[Optional[str]]
 
 class InspectionItem(Base):
     __tablename__ = "inspection_items"

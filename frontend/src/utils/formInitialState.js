@@ -1,4 +1,8 @@
 export const initialFormData = {
+    agentDetails: {
+        name: '',
+        agency: '',
+    },
     propertyAddress: '',
     reportDate: '',
     electricalSafetyCheck: false,

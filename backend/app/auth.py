@@ -5,8 +5,9 @@ from app import models, database, utils
 from passlib.context import CryptContext
 from jose import JWTError, jwt
 from datetime import datetime, timedelta
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr
 from app.utils import get_password_hash, verify_password
+from typing import Optional
 
 SECRET_KEY = "supersecretkey"  # In production, use env var
 ALGORITHM = "HS256"
@@ -16,6 +17,16 @@ router = APIRouter()
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
+
+class UserOut(BaseModel):
+    id: int
+    username: str
+    email: EmailStr
+    phone: Optional[str]
+    user_type_id: int
+
+    class Config:
+        orm_mode = True
 
 class UserCreate(BaseModel):
     username: str
@@ -28,7 +39,10 @@ class Token(BaseModel):
     access_token: str
     token_type: str
 
-@router.post("/register", response_model=Token)
+class TokenAndUser(Token):
+    user: UserOut
+
+@router.post("/register", response_model=TokenAndUser)
 def register(user: UserCreate, db: Session = Depends(database.get_db)):
     db_user = db.query(models.User).filter(models.User.email == user.email).first()
     if db_user:
@@ -45,15 +59,15 @@ def register(user: UserCreate, db: Session = Depends(database.get_db)):
     db.commit()
     db.refresh(new_user)
     access_token = create_access_token(data={"sub": new_user.email})
-    return {"access_token": access_token, "token_type": "bearer"}
+    return {"access_token": access_token, "token_type": "bearer", "user": new_user}
 
-@router.post("/login", response_model=Token)
+@router.post("/login", response_model=TokenAndUser)
 def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(database.get_db)):
     user = db.query(models.User).filter(models.User.email == form_data.username).first()
     if not user or not verify_password(form_data.password, user.password_hash):
         raise HTTPException(status_code=401, detail="Incorrect email or password")
     access_token = create_access_token(data={"sub": user.email})
-    return {"access_token": access_token, "token_type": "bearer"}
+    return {"access_token": access_token, "token_type": "bearer", "user": user}
 
 def create_access_token(data: dict, expires_delta: timedelta = None):
     to_encode = data.copy()

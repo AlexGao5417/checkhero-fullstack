@@ -38,9 +38,18 @@ class UserUpdate(BaseModel):
 def list_users(
     skip: int = 0,
     limit: int = 10,
+    username: Optional[str] = Query(None),
+    email: Optional[str] = Query(None),
+    user_type_id: Optional[int] = Query(None),
     db: Session = Depends(database.get_db)
 ):
     query = db.query(models.User)
+    if username:
+        query = query.filter(models.User.username.ilike(f"%{username}%"))
+    if email:
+        query = query.filter(models.User.email.ilike(f"%{email}%"))
+    if user_type_id:
+        query = query.filter(models.User.user_type_id == user_type_id)
     users = query.offset(skip).limit(limit).all()
     result = []
     for u in users:

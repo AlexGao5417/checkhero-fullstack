@@ -11,7 +11,7 @@ const userTypes = [
 ];
 
 const PAGE_SIZE = 5;
-const API_BASE = 'http://localhost:8000'; // Adjust if needed
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 const UserManagement = () => {
   const [users, setUsers] = useState([]);
@@ -33,10 +33,9 @@ const UserManagement = () => {
     try {
       const skip = (page - 1) * PAGE_SIZE;
       const params = { skip, limit: PAGE_SIZE };
-      params.user_type_id = '1';
       if (filters.username) params.username = filters.username;
       if (filters.email) params.email = filters.email;
-      if (filters.user_type) params.user_type = filters.user_type;
+      if (filters.user_type) params.user_type_id = filters.user_type;
       const res = await axios.get(`${API_BASE}/users/`, { params });
       setUsers(res.data.map(u => ({ ...u, key: u.id, userType: u.user_type })));
       setTotal(res.data.length < PAGE_SIZE && page === 1 ? res.data.length : page * PAGE_SIZE + (res.data.length === PAGE_SIZE ? 1 : 0));
@@ -159,9 +158,6 @@ const UserManagement = () => {
       ),
     },
   ];
-  const onCreate = async values => {
-    console.log('Received values of form: ', values);
-  };
 
   return (
     <div style={{ padding: 24 }}>

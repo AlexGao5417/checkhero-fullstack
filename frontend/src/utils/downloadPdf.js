@@ -1,6 +1,7 @@
-export async function downloadPdfFromBackend(formData) {
-  const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-  const response = await fetch(`${apiUrl}/report`, {
+const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+
+export const downloadPdf = async (formData) => {
+  const response = await fetch(`${apiUrl}/reports/create`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -10,7 +11,7 @@ export async function downloadPdfFromBackend(formData) {
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({}));
-    throw new Error(error.error || 'Failed to generate PDF');
+    throw new Error(error.detail || 'Failed to generate PDF');
   }
 
   const blob = await response.blob();
@@ -22,4 +23,4 @@ export async function downloadPdfFromBackend(formData) {
   a.click();
   a.remove();
   window.URL.revokeObjectURL(url);
-} 
+}; 

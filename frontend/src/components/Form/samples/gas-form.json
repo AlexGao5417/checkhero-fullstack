@@ -1,0 +1,158 @@
+{
+  "initialFormData": {
+    "propertyDetails": {
+      "propertyAddress": "449 Mount Dandenong Road, Kilsyth",
+    "dateOfInspection": "2024-02-02"
+    },
+    "checksConducted": {
+      "gasSafetyCheckStatus": "Pass"
+    },
+    "contactDetails": {
+      "email": "support@checkhero.com.au",
+      "phone": "03 7067 8237"
+    },
+    "faultsRemedialActions": [
+      {
+        "observation": "",
+        "recommendation": "",
+        "image": "https://placehold.co/600x400/FF5733/FFFFFF?text=Fault+Image+1"
+      }
+    ],
+    "gasSafetyReportDetails": {
+      "reportDate": "2024-02-02",
+      "vbaRecordNumber": "41234",
+      "licensedPersonEmail": "cg.pool110@gmail.com",
+      "licensedPersonLicenseNo": "null",
+      "checkCompletedBy": "Chris Pool",
+      "checkCompletedByLicenseNo": "43325",
+      "clientName": "Rental Provider",
+      "clientContactNo": "null",
+      "streetAddress": "449 Mount Dandenong Road",
+      "suburb": "Kilsyth",
+      "postcode": "3137"
+    },
+    "gasInstallation": {
+      "lpGasCylindersCorrectlyInstalled": "Yes",
+      "leakageTestResult": "Pass",
+      "comments": "null"
+    },
+    "gasAppliances": [
+      {
+        "applianceName": "Chef Freestanding Oven/Cooktop/grill",
+        "applianceImage": "https://placehold.co/600x400/33FF57/FFFFFF?text=Appliance+Image+1",
+        "isolationValvePresent": "Yes",
+        "electricallySafe": "Yes",
+        "adequateVentilation": "Yes",
+        "adequateClearances": "Yes",
+        "serviceInAccordanceWithAS4575": "Yes",
+        "comments": ""
+      },
+      {
+        "applianceName": "Rinnai 556FDT space Heater",
+        "applianceImage": "https://placehold.co/600x400/5733FF/FFFFFF?text=Appliance+Image+2",
+        "isolationValvePresent": "Yes",
+        "electricallySafe": "Yes",
+        "adequateVentilation": "Yes",
+        "adequateClearances": "Yes",
+        "serviceInAccordanceWithAS4575": "Yes",
+        "comments": "CO Test ok. 0.00 ppm"
+      }
+    ],
+    "applianceServicingCompliance": {
+      "servicedInAccordanceWithAS4575": true,
+      "recordCreatedAndProvidedToRentalProvider": true
+    },
+    "declaration": {
+      "applianceStatus": "Compliant",
+      "nextGasSafetyCheckDue": "2026-02-02",
+      "gasfitterSignatureImage": "https://placehold.co/200x80/000000/FFFFFF?text=Gasfitter+Signature"
+    },
+    "annexPhotos": [
+      {
+        "applianceName": "Chef Freestanding Oven/Cooktop/grill",
+        "photoUrl": "https://placehold.co/600x400/FF0000/FFFFFF?text=Oven/Cooktop+Photo"
+      },
+      {
+        "applianceName": "Rinnai 556FDT space Heater",
+        "photoUrl": "https://placehold.co/600x400/0000FF/FFFFFF?text=Space+Heater+Photo"
+      }
+    ]
+  },
+  "formDataFormat": {
+    "propertyDetails": {
+      "propertyAddress": { "type": "string" },
+      "dateOfInspection": { "type": "string", "format": "date" }
+    },
+    "checksConducted": {
+      "gasSafetyCheckStatus": { "type": "string", "enum": ["Pass", "Fail"] }
+    },
+    "contactDetails": {
+      "email": { "type": "string", "format": "email" },
+      "phone": { "type": "string" }
+    },
+    "faultsRemedialActions": [
+      {
+        "observation": { "type": "string" },
+        "recommendation": { "type": "string" },
+        "image": { "type": "string", "format": "url" }
+      }
+    ],
+    "gasSafetyReportDetails": {
+      "reportDate": { "type": "string", "format": "date" },
+      "vbaRecordNumber": { "type": "string" },
+      "licensedPersonEmail": { "type": "string", "format": "email" },
+      "licensedPersonLicenseNo": { "type": "string" },
+      "checkCompletedBy": { "type": "string" },
+      "checkCompletedByLicenseNo": { "type": "string" },
+      "clientName": { "type": "string" },
+      "clientContactNo": { "type": "string" },
+      "streetAddress": { "type": "string" },
+      "suburb": { "type": "string" },
+      "postcode": { "type": "string" }
+    },
+    "gasInstallation": {
+      "lpGasCylindersCorrectlyInstalled": {
+        "type": "string",
+        "enum": ["Yes", "No", "N/A"]
+      },
+      "leakageTestResult": { "type": "string", "enum": ["Pass", "Fail"] },
+      "comments": { "type": "string" }
+    },
+    "gasAppliances": [
+      {
+        "applianceName": { "type": "string" },
+        "applianceImage": { "type": "string", "format": "url" },
+        "isolationValvePresent": {
+          "type": "string",
+          "enum": ["Yes", "No", "N/A"]
+        },
+        "electricallySafe": { "type": "string", "enum": ["Yes", "No"] },
+        "adequateVentilation": { "type": "string", "enum": ["Yes", "No"] },
+        "adequateClearances": { "type": "string", "enum": ["Yes", "No"] },
+        "serviceInAccordanceWithAS4575": {
+          "type": "string",
+          "enum": ["Yes", "No"]
+        },
+        "comments": { "type": "string" }
+      }
+    ],
+    "applianceServicingCompliance": {
+      "servicedInAccordanceWithAS4575": { "type": "boolean" },
+      "recordCreatedAndProvidedToRentalProvider": { "type": "boolean" }
+    },
+    "declaration": {
+      "applianceStatus": {
+        "type": "string",
+        "enum": ["Compliant", "Non-Compliant", "Unsafe"]
+      },
+      "nextGasSafetyCheckDue": { "type": "string", "format": "date" },
+      "gasfitterSignatureImage": { "type": "string", "format": "url" }
+    },
+    "annexPhotos": [
+      {
+        "applianceName": { "type": "string" },
+        "photoUrl": { "type": "string", "format": "url" }
+      }
+    ]
+  }
+}

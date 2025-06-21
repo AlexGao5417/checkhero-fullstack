@@ -1,8 +1,11 @@
 from reportlab.lib.pagesizes import A4
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
 from reportlab.lib.units import mm
+from reportlab.lib.utils import ImageReader
+import requests
+from io import BytesIO
 
 
 # Function to generate the PDF report
@@ -135,6 +138,25 @@ def generate_report(data, filename="generated_report.pdf"):
     elements.append(Paragraph(f"Inspection Date: {data.get('inspectionDate', '')}", normal_style))
     elements.append(Paragraph(f"Next Inspection Due: {data.get('nextInspectionDueDate', '')}", normal_style))
     elements.append(Paragraph(f"Signature Date: {data.get('signatureDate', '')}", normal_style))
+
+    # Add images from S3 URLs
+    image_urls = data.get('images', [])
+    if image_urls:
+        elements.append(Spacer(1, 12))
+        elements.append(Paragraph("Attached Images", section_style))
+        for url in image_urls:
+            try:
+                response = requests.get(url, stream=True)
+                response.raise_for_status()
+                image = Image(ImageReader(BytesIO(response.content)))
+                image.drawWidth = 150 * mm
+                image.drawHeight = 100 * mm
+                image.hAlign = 'CENTER'
+                elements.append(image)
+                elements.append(Spacer(1, 6))
+            except requests.exceptions.RequestException as e:
+                print(f"Could not fetch image from {url}: {e}")
+                elements.append(Paragraph(f"<i>Could not load image from {url}</i>", normal_style))
 
     # Build PDF
     doc.build(elements)
