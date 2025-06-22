@@ -6,7 +6,7 @@ import formReducer from './formSlice';
 
 const rootReducer = combineReducers({
   auth: authReducer,
-  form: formReducer,
+  forms: formReducer,
 });
 
 const persistConfig = {

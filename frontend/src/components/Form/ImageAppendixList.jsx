@@ -1,7 +1,7 @@
 import React from 'react';
 import { Upload, Input, Button, message } from 'antd';
 import { DeleteFilled, PlusCircleOutlined, PictureFilled } from '@ant-design/icons';
-import axios from 'axios';
+import { customUploadRequest } from '../../utils/s3Upload';
 
 const { TextArea } = Input;
 
@@ -30,35 +30,14 @@ const ImageAppendixList = ({ value = [], onChange }) => {
     onChange(newList);
   };
 
-  // S3 upload logic using presigned URL
-  const customRequest = async ({ file, onSuccess, onError }, idx) => {
+  // S3 upload logic using shared utility
+  const handleCustomUpload = async ({ file, onSuccess, onError }, idx) => {
     try {
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-      // Get presigned URL from backend
-      const presignRes = await axios.get(
-        `${apiUrl}/reports/presigned-url/?content_type=${encodeURIComponent(file.type)}`
-      );
-      const { upload_url, public_url } = presignRes.data;
-      
-      // Upload to S3 using fetch for cleaner headers
-      const uploadResponse = await fetch(upload_url, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': file.type,
-        },
-        body: file,
+      await customUploadRequest({ file, onSuccess, onError }, (url) => {
+        handleImageChange(url, idx);
       });
-
-      if (!uploadResponse.ok) {
-        throw new Error('S3 upload failed.');
-      }
-
-      handleImageChange(public_url, idx);
-      onSuccess({ url: public_url });
-      message.success('Image uploaded');
     } catch (err) {
-      message.error('Upload failed');
-      onError(err);
+      // Error handling is already done in the utility function
     }
   };
 
@@ -82,7 +61,7 @@ const ImageAppendixList = ({ value = [], onChange }) => {
               listType="picture-card"
               maxCount={1}
               showUploadList={false}
-              customRequest={(options) => customRequest(options, idx)}
+              customRequest={(options) => handleCustomUpload(options, idx)}
               accept="image/*"
               onRemove={() => handleImageChange('', idx)}
               style={{ width: 320, height: 220 }}

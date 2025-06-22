@@ -98,3 +98,5 @@ if (typeof window !== 'undefined') {
     console.error('[CheckHero] initialFormData utility structure is invalid!');
   }
 }
+
+export const generateFormPayload = (formType) => (payload) => ({ formType, ...payload });

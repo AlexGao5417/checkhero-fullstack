@@ -32,7 +32,9 @@ const Sidebar = () => {
       items.push(
         { key: '1', icon: <SolutionOutlined />, label: <Link to="/reports">Reports</Link> },
         { key: '2', icon: <UserOutlined />, label: <Link to="/user-management">User Management</Link> },
-        { key: '3', icon: <FileTextOutlined />, label: <Link to="/form">Form</Link> }
+        { key: '3', icon: <FileTextOutlined />, label: <Link to="/form">Form</Link> },
+        { key: '4', icon: <FileTextOutlined />, label: <Link to="/gas-form">Gas Safety Check Form</Link> },
+        { key: '5', icon: <FileTextOutlined />, label: <Link to="/smoke-form">Smoke Safety Check Form</Link> }
       );
     } else if (user_type_id === 2) { // Agent
       items.push(
@@ -42,7 +44,9 @@ const Sidebar = () => {
     } else if (user_type_id === 3) { // Electrician
       items.push(
         { key: '1', icon: <SolutionOutlined />, label: <Link to="/reports">Reports</Link> },
-        { key: '2', icon: <FileTextOutlined />, label: <Link to="/form">Form</Link> }
+        { key: '2', icon: <FileTextOutlined />, label: <Link to="/form">Electricity & Smoke Safety Check Form</Link> },
+        { key: '3', icon: <FileTextOutlined />, label: <Link to="/gas-form">Gas Safety Check Form</Link> },
+        { key: '4', icon: <FileTextOutlined />, label: <Link to="/smoke-form">Smoke Safety Check Form</Link> }
       );
     }
     return items;

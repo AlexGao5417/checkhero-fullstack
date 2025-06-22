@@ -8,6 +8,7 @@ import ReportsTable from './components/Reports/ReportsTable';
 import Sidebar from './components/Sidebar';
 import GuestRoute from './components/Auth/GuestRoute';
 import FormPage from './pages/FormPage';
+import GasFormPage from './pages/GasFormPage';
 
 const { Content } = Layout;
 
@@ -51,6 +52,7 @@ const App = () => {
             <Route path="/user-management" element={<UserManagement />} />
             <Route path="/reports" element={<ReportsTable />} />
             <Route path="/form" element={<FormPage />} />
+            <Route path="/gas-form" element={<GasFormPage />} />
             {/* Add other protected routes here */}
             <Route path="/" element={<Navigate to={getDefaultPath()} />} />
           </Route>

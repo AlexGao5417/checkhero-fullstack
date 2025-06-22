@@ -20,12 +20,13 @@ import ImageAppendixList from '../components/Form/ImageAppendixList';
 import axios from 'axios';
 import { Alert, Spin, Modal, Input } from 'antd';
 import { useLocation } from 'react-router-dom';
+import { generateFormPayload } from '../utils/formInitialState';
 
 const { TextArea } = Input;
 
 const FormPage = () => {
   const dispatch = useDispatch();
-  const { formData, currentStep } = useSelector((state) => state.form);
+  const { formData, currentStep } = useSelector((state) => state.forms.electricityAndSmokeForm);
   const { user } = useSelector((state) => state.auth);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState(null);
@@ -38,10 +39,12 @@ const FormPage = () => {
   const location = useLocation();
   const initialFormData = location.state?.formData;
   const reportId = location.state?.reportId;
+  
+  const formAction = generateFormPayload('electricityAndSmokeForm');
 
   useEffect(() => {
     if (initialFormData) {
-      dispatch(setFormData(initialFormData));
+      dispatch(setFormData(formAction({ formData: initialFormData })));
     }
     // eslint-disable-next-line
   }, []);
@@ -49,26 +52,26 @@ const FormPage = () => {
   const totalSteps = 6;
 
   const handleCheckboxChange = (section, field) => (e) => {
-    dispatch(updateField({ section, field, value: e.target.checked }));
+    dispatch(updateField(formAction({ section, field, value: e.target.checked })));
   };
   
   const handleNestedInputChange = (section, index, field) => (e) => {
-    dispatch(updateNestedField({ section, index, field, value: e.target.value }));
+    dispatch(updateNestedField(formAction({ section, index, field, value: e.target.value })));
   };
 
   const handleAddSmokeAlarm = () => {
-    dispatch(addSmokeAlarm());
+    dispatch(addSmokeAlarm(formAction()));
   };
 
   const handleRemoveSmokeAlarm = (index) => {
-    dispatch(removeSmokeAlarm(index));
+    dispatch(removeSmokeAlarm(formAction({ index })));
   };
 
-  const handleNext = () => dispatch(setStep(Math.min(currentStep + 1, totalSteps)));
-  const handleBack = () => dispatch(setStep(Math.max(currentStep - 1, 1)));
+  const handleNext = () => dispatch(setStep(formAction({ step: Math.min(currentStep + 1, totalSteps) })));
+  const handleBack = () => dispatch(setStep(formAction({ step: Math.max(currentStep - 1, 1) })));
 
   const handleClearForm = () => {
-    dispatch(resetForm());
+    dispatch(resetForm(formAction()));
   };
 
   const handleApprove = () => {
@@ -102,7 +105,7 @@ const FormPage = () => {
       };
       await axios.put(`${apiUrl}/reports/update/${reportId}`, payload);
       setAlert({ visible: true, type: 'success', message: `Report ${actionType}d successfully!` });
-      dispatch(resetForm());
+      dispatch(resetForm(formAction()));
       setTimeout(() => {
         setAlert({ visible: false, type: '', message: '' });
         // Optionally navigate away after action
@@ -160,7 +163,7 @@ const FormPage = () => {
       };
       const res = await axios.post(`${apiUrl}/reports/create`, payload);
       if (res.status === 200 || res.status === 201) {
-        dispatch(resetForm());
+        dispatch(resetForm(formAction()));
         setAlert({ visible: true, type: 'success', message: 'Report created successfully!' });
         setTimeout(() => setAlert({ visible: false, type: '', message: '' }), 3000);
       }
@@ -178,8 +181,8 @@ const FormPage = () => {
       case 1:
         return (
           <StepWrapper title="Report and Property Details">
-            <InputField label="Property Address" value={formData.propertyAddress} onChange={(e)=>dispatch(updateDirectField({ field: 'propertyAddress', value: e.target.value }))} />
-            <InputField label="Inspection Date" type="date" value={formData.reportDate} onChange={(e)=>dispatch(updateDirectField({ field: 'reportDate', value: e.target.value }))} />
+            <InputField label="Property Address" value={formData.propertyAddress} onChange={(e)=>dispatch(updateDirectField(formAction({ field: 'propertyAddress', value: e.target.value })))} />
+            <InputField label="Inspection Date" type="date" value={formData.reportDate} onChange={(e)=>dispatch(updateDirectField(formAction({ field: 'reportDate', value: e.target.value })))} />
           </StepWrapper>
         );
       case 2:
@@ -259,13 +262,13 @@ const FormPage = () => {
       case 6:
         return (
           <StepWrapper title="Observations and Recommendations">
-            <TextAreaField label="Observations" value={formData.observation} onChange={(e) => dispatch(updateDirectField({ field: 'observation', value: e.target.value }))} />
-            <TextAreaField label="Recommendations" value={formData.recommendation} onChange={(e) => dispatch(updateDirectField({ field: 'recommendation', value: e.target.value }))} />
+            <TextAreaField label="Observations" value={formData.observation} onChange={(e) => dispatch(updateDirectField(formAction({ field: 'observation', value: e.target.value })))} />
+            <TextAreaField label="Recommendations" value={formData.recommendation} onChange={(e) => dispatch(updateDirectField(formAction({ field: 'recommendation', value: e.target.value })))} />
             <div className="mt-6">
               <h3 className="text-base font-semibold mb-2">Image Appendix:</h3>
               <ImageAppendixList
                 value={formData.imageAppendix || []}
-                onChange={(list) => dispatch(updateDirectField({ field: 'imageAppendix', value: list }))}
+                onChange={(list) => dispatch(updateDirectField(formAction({ field: 'imageAppendix', value: list })))}
               />
             </div>
           </StepWrapper>
