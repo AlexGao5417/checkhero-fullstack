@@ -1,11 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import StepWrapper from '../components/Form/StepWrapper';
-import ImageDropzone from '../components/Form/ImageDropzone';
 import CheckboxField from '../components/Form/CheckboxField';
 import TextAreaField from '../components/Form/TextAreaField';
 import InputField from '../components/Form/InputField';
-import { downloadPdf } from '../utils/downloadPdf';
 import {
   setStep,
   updateField,
@@ -17,16 +15,17 @@ import {
   setFormData,
 } from '../redux/formSlice';
 import ImageAppendixList from '../components/Form/ImageAppendixList';
-import axios from 'axios';
-import { Alert, Spin, Modal, Input } from 'antd';
-import { useLocation } from 'react-router-dom';
+import axios from '@utils/axios';
+import { Alert, Spin, Modal, Input, Button, Form, Row, Col, Typography, Card, Divider, Anchor, Checkbox, DatePicker, notification, message, InputNumber } from 'antd';
+import { useLocation, useNavigate, useParams, Link } from 'react-router-dom';
 import { generateFormPayload } from '../utils/formInitialState';
+import { ACTION_TYPES, REPORT_TYPES, REPORT_TYPE_IDS } from '../utils/constants';
 
 const { TextArea } = Input;
 
 const FormPage = () => {
   const dispatch = useDispatch();
-  const { formData, currentStep } = useSelector((state) => state.forms.electricityAndSmokeForm);
+  const { formData, currentStep } = useSelector((state) => state.forms[REPORT_TYPES.ELECTRICITY_AND_SMOKE]);
   const { user } = useSelector((state) => state.auth);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState(null);
@@ -34,13 +33,20 @@ const FormPage = () => {
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [comment, setComment] = useState('');
   const [actionType, setActionType] = useState(''); // 'approve' or 'decline'
-
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [reportData, setReportData] = useState(null);
+  const [isRewardModalVisible, setIsRewardModalVisible] = useState(false);
+  const [reward, setReward] = useState(0);
+  const [approvalComment, setApprovalComment] = useState('');
 
   const location = useLocation();
   const initialFormData = location.state?.formData;
   const reportId = location.state?.reportId;
+  const { id } = useParams();
   
-  const formAction = generateFormPayload('electricityAndSmokeForm');
+  const formAction = generateFormPayload(REPORT_TYPES.ELECTRICITY_AND_SMOKE);
+
+  const navigate = useNavigate();
 
   useEffect(() => {
     if (initialFormData) {
@@ -48,6 +54,29 @@ const FormPage = () => {
     }
     // eslint-disable-next-line
   }, []);
+
+  useEffect(() => {
+    const fetchReportData = async () => {
+      if (id) {
+        setIsSubmitting(true);
+        try {
+          const res = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/reports/${id}`);
+          const formData = res.data.form_data;
+          dispatch(setFormData(formAction({ formData })));
+          setReportData(res.data);
+        } catch (error) {
+          notification.error({ message: 'Failed to fetch report data.' });
+        } finally {
+          setIsSubmitting(false);
+        }
+      }
+    };
+
+    if (user) {
+      setIsAdmin(user.user_type_id === 1);
+      fetchReportData();
+    }
+  }, [id, dispatch, formAction, user]);
 
   const totalSteps = 6;
 
@@ -75,13 +104,33 @@ const FormPage = () => {
   };
 
   const handleApprove = () => {
-    setActionType('approve');
-    setIsModalVisible(true);
+    if (reportData?.agent_is_affiliate) {
+        setIsRewardModalVisible(true);
+    } else {
+        submitApproval();
+    }
+  };
+
+  const submitApproval = async (rewardAmount = null) => {
+    setIsSubmitting(true);
+    try {
+        await axios.put(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/reports/approve/${id}`, {
+            comment: comment,
+            reward: rewardAmount
+        });
+        message.success('Report approved successfully!');
+        navigate('/reports');
+    } catch (error) {
+        message.error(error.response?.data?.detail || 'Failed to approve report.');
+        console.error("Approval error:", error);
+    } finally {
+        setIsSubmitting(false);
+        setIsRewardModalVisible(false);
+    }
   };
 
   const handleDecline = () => {
-    setActionType('decline');
-    setIsModalVisible(true);
+    console.log("Deny action triggered");
   };
 
   const handleModalConfirm = async () => {
@@ -99,8 +148,7 @@ const FormPage = () => {
       const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
       const payload = {
         form_data: formData,
-        is_approved: actionType === 'approve',
-        reviewer_id: user?.id,
+        is_approved: actionType === ACTION_TYPES.APPROVE,
         comment: comment,
       };
       await axios.put(`${apiUrl}/reports/update/${reportId}`, payload);
@@ -126,6 +174,13 @@ const FormPage = () => {
     setComment('');
   };
 
+  const handleRewardModalOk = () => {
+    if (!reward || reward <= 0) {
+        message.error("Reward must be a positive number for an affiliated agent.");
+        return;
+    }
+    submitApproval(reward);
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -154,12 +209,11 @@ const FormPage = () => {
 
     // CREATE logic if no reportId
     try {
-      const publisher_id = user?.id;
       const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
       const payload = {
         form_data: formData,
-        publisher_id,
         address: formData.propertyAddress,
+        report_type_id: REPORT_TYPE_IDS[REPORT_TYPES.ELECTRICITY_AND_SMOKE],
       };
       const res = await axios.post(`${apiUrl}/reports/create`, payload);
       if (res.status === 200 || res.status === 201) {
@@ -336,7 +390,7 @@ const FormPage = () => {
       </div>
       <Modal
         title={`Confirm ${actionType}`}
-        visible={isModalVisible}
+        open={isModalVisible}
         onOk={handleModalConfirm}
         onCancel={handleModalCancel}
         confirmLoading={isSubmitting}
@@ -350,6 +404,22 @@ const FormPage = () => {
           value={comment}
           onChange={(e) => setComment(e.target.value)}
           style={{ marginTop: 8 }}
+        />
+      </Modal>
+      <Modal
+        title="Enter Reward"
+        open={isRewardModalVisible}
+        onOk={handleRewardModalOk}
+        onCancel={() => setIsRewardModalVisible(false)}
+        okText="Approve with Reward"
+      >
+        <p>This report was submitted by an affiliated agent. Please enter a reward amount.</p>
+        <InputNumber
+            style={{ width: '100%' }}
+            placeholder="Reward amount"
+            value={reward}
+            onChange={setReward}
+            min={1}
         />
       </Modal>
     </div>

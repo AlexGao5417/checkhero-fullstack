@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
-import StepWrapper from '../components/Form/StepWrapper';
-import ImageDropzone from '../components/Form/ImageDropzone';
-import CheckboxField from '../components/Form/CheckboxField';
-import TextAreaField from '../components/Form/TextAreaField';
-import InputField from '../components/Form/InputField';
+import StepWrapper from '@components/Form/StepWrapper';
+import ImageDropzone from '@components/Form/ImageDropzone';
+import CheckboxField from '@components/Form/CheckboxField';
+import TextAreaField from '@components/Form/TextAreaField';
+import InputField from '@components/Form/InputField';
 import {
   setStep,
   updateField,
@@ -13,18 +13,38 @@ import {
   resetForm,
   setFormData,
 } from '../redux/formSlice';
-import ImageAppendixList from '../components/Form/ImageAppendixList';
-import axios from 'axios';
-import { Alert, Spin, Modal, Input, Select } from 'antd';
-import { useLocation } from 'react-router-dom';
-import { generateFormPayload } from '../utils/formInitialState';
+import ImageAppendixList from '@components/Form/ImageAppendixList';
+import axios from '@utils/axios';
+import {
+  Alert,
+  Spin,
+  Modal,
+  Input,
+  Select,
+  Button,
+  Form,
+  Row,
+  Col,
+  Typography,
+  Card,
+  Divider,
+  Anchor,
+  Checkbox,
+  DatePicker,
+  notification,
+  message,
+  InputNumber
+} from 'antd';
+import { useLocation, useNavigate, useParams, Link } from 'react-router-dom';
+import { generateFormPayload } from '@utils/formInitialState';
+import { ACTION_TYPES, REPORT_TYPES, REPORT_TYPE_IDS } from '@utils/constants';
 
 const { TextArea } = Input;
 const { Option } = Select;
 
 const GasFormPage = () => {
   const dispatch = useDispatch();
-  const { formData, currentStep } = useSelector((state) => state.forms.gasForm);
+  const { formData, currentStep } = useSelector((state) => state.forms[REPORT_TYPES.GAS]);
   const { user } = useSelector((state) => state.auth);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState(null);
@@ -32,12 +52,17 @@ const GasFormPage = () => {
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [comment, setComment] = useState('');
   const [actionType, setActionType] = useState('');
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [reportData, setReportData] = useState(null);
+  const [isRewardModalVisible, setIsRewardModalVisible] = useState(false);
+  const [reward, setReward] = useState(0);
 
+  const navigate = useNavigate();
   const location = useLocation();
   const initialFormData = location.state?.formData;
-  const reportId = location.state?.reportId;
+  const { id } = useParams();
 
-  const gasFormAction = generateFormPayload('gasForm');
+  const gasFormAction = generateFormPayload(REPORT_TYPES.GAS);
 
   // Initial form data from gas-form.json
   const gasFormInitialData = {
@@ -123,11 +148,32 @@ const GasFormPage = () => {
   useEffect(() => {
     if (initialFormData) {
       dispatch(setFormData(gasFormAction({ formData: initialFormData })));
-    } else {
-      dispatch(setFormData(gasFormAction({ formData: gasFormInitialData })));
     }
     // eslint-disable-next-line
   }, []);
+
+  useEffect(() => {
+    const fetchReportData = async () => {
+      if (id) {
+        setIsSubmitting(true);
+        try {
+          const res = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/reports/${id}`);
+          const formData = res.data.form_data;
+          dispatch(setFormData(gasFormAction({ formData })));
+          setReportData(res.data);
+        } catch (error) {
+          notification.error({ message: 'Failed to fetch report data.' });
+        } finally {
+          setIsSubmitting(false);
+        }
+      }
+    };
+
+    if (user) {
+      setIsAdmin(user.user_type_id === 1);
+      fetchReportData();
+    }
+  }, [id, dispatch, gasFormAction, user]);
 
   const totalSteps = 8;
 
@@ -192,57 +238,45 @@ const GasFormPage = () => {
   const handleBack = () => dispatch(setStep(gasFormAction({ step: Math.max(currentStep - 1, 1) })));
 
   const handleClearForm = () => {
-    dispatch(setFormData(gasFormAction({ formData: gasFormInitialData })));
+    dispatch(resetForm(gasFormAction()));
   };
 
   const handleApprove = () => {
-    setActionType('approve');
-    setIsModalVisible(true);
-  };
-
-  const handleDecline = () => {
-    setActionType('decline');
-    setIsModalVisible(true);
-  };
-
-  const handleModalConfirm = async () => {
-    if (!reportId) {
-      setError('No report ID found for updating.');
-      setAlert({ visible: true, type: 'error', message: 'Report ID missing.' });
-      setTimeout(() => setAlert({ visible: false, type: '', message: '' }), 3000);
-      return;
+    if (reportData?.agent_is_affiliate) {
+        setIsRewardModalVisible(true);
+    } else {
+        submitApproval();
     }
+  };
 
+  const submitApproval = async (rewardAmount = null) => {
     setIsSubmitting(true);
-    setAlert({ visible: false, type: '', message: '' });
-
     try {
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-      const payload = {
-        form_data: formData,
-        is_approved: actionType === 'approve',
-        reviewer_id: user?.id,
-        comment: comment,
-      };
-      await axios.put(`${apiUrl}/reports/update/${reportId}`, payload);
-      setAlert({ visible: true, type: 'success', message: `Report ${actionType}d successfully!` });
-      dispatch(resetForm(gasFormAction()));
-      setTimeout(() => {
-        setAlert({ visible: false, type: '', message: '' });
-      }, 3000);
-    } catch (err) {
-      setAlert({ visible: true, type: 'error', message: `Failed to ${actionType} report. Please try again.` });
-       setTimeout(() => setAlert({ visible: false, type: '', message: '' }), 3000);
+        await axios.put(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/reports/approve/${id}`, {
+            comment: comment,
+            reward: rewardAmount
+        });
+        message.success('Report approved successfully!');
+        navigate('/reports');
+    } catch (error) {
+        message.error(error.response?.data?.detail || 'Failed to approve report.');
+        console.error("Approval error:", error);
     } finally {
-      setIsSubmitting(false);
-      setIsModalVisible(false);
-      setComment('');
+        setIsSubmitting(false);
+        setIsRewardModalVisible(false);
     }
   };
+  
+  const handleDecline = () => {
+    console.log("Deny action triggered");
+  };
 
-  const handleModalCancel = () => {
-    setIsModalVisible(false);
-    setComment('');
+  const handleRewardModalOk = () => {
+    if (!reward || reward <= 0) {
+        message.error("Reward must be a positive number for an affiliated agent.");
+        return;
+    }
+    submitApproval(reward);
   };
 
   const handleSubmit = async (e) => {
@@ -250,18 +284,16 @@ const GasFormPage = () => {
     setIsSubmitting(true);
     setAlert({ visible: false, type: '', message: '' });
 
+    const reportId = id;
+
     if (reportId) {
       try {
         const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-        const payload = { form_data: formData };
+        const payload = { form_data: formData, comment: comment };
         await axios.put(`${apiUrl}/reports/update/${reportId}`, payload);
-        setAlert({ visible: true, type: 'success', message: 'Gas safety report updated successfully!' });
-        setTimeout(() => {
-          setAlert({ visible: false, type: '', message: '' });
-        }, 3000);
+        message.success('Report updated successfully!');
       } catch (err) {
-        setAlert({ visible: true, type: 'error', message: 'Failed to update gas safety report.' });
-        setTimeout(() => setAlert({ visible: false, type: '', message: '' }), 3000);
+        message.error('Failed to update report.');
       } finally {
         setIsSubmitting(false);
       }
@@ -269,23 +301,17 @@ const GasFormPage = () => {
     }
 
     try {
-      const publisher_id = user?.id;
       const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
       const payload = {
         form_data: formData,
-        publisher_id,
-        address: formData.propertyDetails?.propertyAddress,
+        address: formData.propertyDetails.propertyAddress,
+        report_type_id: REPORT_TYPE_IDS[REPORT_TYPES.GAS],
       };
       const res = await axios.post(`${apiUrl}/reports/create`, payload);
-      if (res.status === 200 || res.status === 201) {
-        dispatch(setFormData(gasFormAction({ formData: gasFormInitialData })));
-        setAlert({ visible: true, type: 'success', message: 'Gas safety report created successfully!' });
-        setTimeout(() => setAlert({ visible: false, type: '', message: '' }), 3000);
-      }
+      dispatch(resetForm(gasFormAction()));
+      message.success('Report created successfully!');
     } catch (err) {
-      setError('Failed to create gas safety report. Please try again.');
-      setAlert({ visible: true, type: 'error', message: 'Failed to create gas safety report. Please try again.' });
-      setTimeout(() => setAlert({ visible: false, type: '', message: '' }), 3000);
+      message.error('Failed to create report. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
@@ -616,7 +642,7 @@ const GasFormPage = () => {
   };
 
   return (
-    <div className="container mx-auto p-4">
+    <div className="max-w-4xl mx-auto p-4">
       <div className="bg-white rounded-lg shadow-lg p-8">
         <h1 className="text-3xl font-bold mb-6 text-center text-gray-800">Gas Safety Check Report</h1>
         <div className="mb-6">
@@ -647,7 +673,7 @@ const GasFormPage = () => {
               </div>
               <div>
                 {currentStep === totalSteps ? (
-                  user && user.user_type_id === 1 && reportId ? (
+                  user && user.user_type_id === 1 && id ? (
                     <div className="flex gap-4">
                       <button type="button" onClick={handleDecline} className="px-6 py-2 bg-red-600 text-white rounded-md hover:bg-red-700">Decline</button>
                       <button type="button" onClick={handleApprove} className="px-6 py-2 bg-green-600 text-white rounded-md hover:bg-green-700">Approve</button>
@@ -659,7 +685,7 @@ const GasFormPage = () => {
                       disabled={isSubmitting}
                       className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
                     >
-                      {isSubmitting ? (reportId ? 'Updating...' : 'Submitting...') : (reportId ? 'Update' : 'Submit')}
+                      {isSubmitting ? (id ? 'Updating...' : 'Submitting...') : (id ? 'Update' : 'Submit')}
                     </button>
                   )
                 ) : (
@@ -672,21 +698,19 @@ const GasFormPage = () => {
         {error && <p className="text-red-500 text-center mt-4">{error}</p>}
       </div>
       <Modal
-        title={`Confirm ${actionType}`}
-        open={isModalVisible}
-        onOk={handleModalConfirm}
-        onCancel={handleModalCancel}
-        confirmLoading={isSubmitting}
-        okText="Confirm"
-        cancelText="Cancel"
+        title="Enter Reward"
+        open={isRewardModalVisible}
+        onOk={handleRewardModalOk}
+        onCancel={() => setIsRewardModalVisible(false)}
+        okText="Approve with Reward"
       >
-        <p>Please provide a comment for this action.</p>
-        <TextArea
-          rows={4}
-          placeholder="Add a comment (optional)"
-          value={comment}
-          onChange={(e) => setComment(e.target.value)}
-          style={{ marginTop: 8 }}
+        <p>This report was submitted by an affiliated agent. Please enter a reward amount.</p>
+        <InputNumber
+            style={{ width: '100%' }}
+            placeholder="Reward amount"
+            value={reward}
+            onChange={setReward}
+            min={1}
         />
       </Modal>
     </div>

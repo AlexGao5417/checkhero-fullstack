@@ -2,13 +2,17 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { Layout } from 'antd';
-import LoginPage from './components/Auth/LoginPage';
-import UserManagement from './components/Auth/UserManagement';
-import ReportsTable from './components/Reports/ReportsTable';
-import Sidebar from './components/Sidebar';
-import GuestRoute from './components/Auth/GuestRoute';
-import FormPage from './pages/FormPage';
-import GasFormPage from './pages/GasFormPage';
+import LoginPage from '@components/Auth/LoginPage';
+import UserManagement from '@components/Auth/UserManagement';
+import ReportsTable from '@components/Reports/ReportsTable';
+import Sidebar from '@components/Sidebar';
+import GuestRoute from '@components/Auth/GuestRoute';
+import FormPage from '@pages/FormPage';
+import GasFormPage from '@pages/GasFormPage';
+import SmokeFormPage from '@pages/SmokeFormPage';
+import WithdrawPage from '@pages/WithdrawPage';
+import PrivateRoute from '@components/Auth/PrivateRoute';
+import AccountPage from '@pages/AccountPage';
 
 const { Content } = Layout;
 
@@ -52,8 +56,11 @@ const App = () => {
             <Route path="/user-management" element={<UserManagement />} />
             <Route path="/reports" element={<ReportsTable />} />
             <Route path="/form" element={<FormPage />} />
-            <Route path="/gas-form" element={<GasFormPage />} />
-            {/* Add other protected routes here */}
+            <Route path="/gas-form" element={<PrivateRoute><GasFormPage /></PrivateRoute>} />
+            <Route path="/smoke-form" element={<PrivateRoute><SmokeFormPage /></PrivateRoute>} />
+            <Route path="/withdraw" element={<PrivateRoute><WithdrawPage /></PrivateRoute>} />
+            <Route path="/users" element={<PrivateRoute><UserManagement /></PrivateRoute>} />
+            <Route path="/account" element={<PrivateRoute><AccountPage /></PrivateRoute>} />
             <Route path="/" element={<Navigate to={getDefaultPath()} />} />
           </Route>
         </Route>

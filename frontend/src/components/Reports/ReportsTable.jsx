@@ -16,15 +16,16 @@ import {
 } from "antd";
 import { DownloadOutlined, ExclamationCircleOutlined } from "@ant-design/icons";
 import { useNavigate } from "react-router-dom";
-import axios from "axios";
+import axios from '@utils/axios';
+import { USER_ROLES, REPORT_STATUS, REPORT_TYPES, REPORT_TYPE_IDS } from "@utils/constants";
 
 // Map user_type_id to type string for demo
 const userTypeMap = { 1: "admin", 2: "agent", 3: "electrician" };
 
 const statusColors = {
-  draft: "default",
-  approved: "success",
-  denied: "error",
+  [REPORT_STATUS.DRAFT]: "default",
+  [REPORT_STATUS.APPROVED]: "success",
+  [REPORT_STATUS.DENIED]: "error",
 };
 
 const PAGE_SIZE = 5;
@@ -47,26 +48,21 @@ const ReportsTable = ({ onEditReport }) => {
   // Fetch reports from backend
   useEffect(() => {
     if (!currentUser) return;
+    
     setLoading(true);
     setError(null);
     const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:8000";
-    const params = new URLSearchParams({
-      user_id: currentUser.id,
-      user_type_id: currentUser.user_type_id,
-    });
-    fetch(`${apiUrl}/reports/?${params}`)
+
+    axios.get(`${apiUrl}/reports/`)
       .then((res) => {
-        if (!res.ok) throw new Error("Failed to fetch reports");
-        return res.json();
-      })
-      .then((data) => {
-        setReports(data);
-        setTotal(data.length);
+        setReports(res.data);
+        setTotal(res.data.length);
         setCurrentPage(1);
-        setLoading(false);
       })
       .catch((err) => {
-        setError(err.message);
+        setError(err.response?.data?.detail || "Failed to fetch reports.");
+      })
+      .finally(() => {
         setLoading(false);
       });
   }, [currentUser]);
@@ -95,9 +91,22 @@ const ReportsTable = ({ onEditReport }) => {
   );
 
   const handleEdit = (record) => {
-    navigate("/form", {
-      state: { formData: record.form_data, reportId: record.id },
-    });
+    const reportTypeRoutes = {
+      [REPORT_TYPE_IDS[REPORT_TYPES.ELECTRICITY_AND_SMOKE]]: '/form',
+      [REPORT_TYPE_IDS[REPORT_TYPES.GAS]]: '/gas-form',
+      [REPORT_TYPE_IDS[REPORT_TYPES.SMOKE]]: '/smoke-form',
+    };
+    
+    const path = reportTypeRoutes[record.report_type_id];
+
+    if (path) {
+      navigate(path, {
+        state: { formData: record.form_data, reportId: record.id },
+      });
+    } else {
+      console.error(`No route found for report type ID: ${record.report_type_id}`);
+      // Optionally, show an error to the user
+    }
   };
 
   const handleDelete = (record) => {
@@ -155,11 +164,17 @@ const ReportsTable = ({ onEditReport }) => {
       key: "reviewer",
     },
     {
+      title: "Reward",
+      dataIndex: "reward",
+      key: "reward",
+      render: (reward) => (reward ? `$${Number(reward).toFixed(2)}` : 'N/A'),
+    },
+    {
       title: "Actions",
       key: "actions",
       render: (_, record) => (
         <Space>
-          {record.status === 'approved' ? (
+          {record.status === REPORT_STATUS.APPROVED ? (
             <Button
               type="primary"
               icon={<DownloadOutlined />}
@@ -172,7 +187,7 @@ const ReportsTable = ({ onEditReport }) => {
           ) : (
             <Button type="link" onClick={() => handleEdit(record)}>Edit</Button>
           )}
-          {currentUser.user_type_id === 1 && (
+          {currentUser.user_type_id === USER_ROLES.ADMIN && (
             <Button type="link" danger onClick={() => handleDelete(record)}>Delete</Button>
           )}
         </Space>

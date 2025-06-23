@@ -1,0 +1,167 @@
+from fastapi import APIRouter, Depends, HTTPException, status, Body
+from sqlalchemy.orm import Session
+from sqlalchemy import func
+from . import models, database, auth, constants
+from pydantic import BaseModel
+from typing import Optional, List
+from datetime import datetime
+from app.constants import AGENT, DRAFT, PENDING, DENIED, APPROVED
+
+router = APIRouter(
+    prefix="/agent",
+    tags=["agent"],
+)
+
+# Pydantic Schemas
+class AddressAgentCreate(BaseModel):
+    address_id: int
+    agent_id: int
+
+class AddressAgentUpdate(BaseModel):
+    address_id: int
+
+class AffiliateCreate(BaseModel):
+    agent_id: int
+
+class AffiliateOut(BaseModel):
+    id: int
+    agent_id: int
+    class Config:
+        orm_mode = True
+
+class WithdrawRewardOut(BaseModel):
+    id: int
+    amount: float
+    status: str
+    submit_datetime: datetime
+    review_datetime: Optional[datetime] = None
+
+    class Config:
+        orm_mode = True
+
+# Helper function to calculate balance
+def get_agent_balance(db: Session, agent_id: int):
+    total_rewards = db.query(func.sum(models.Report.reward)) \
+        .filter(models.Report.agent_id == agent_id) \
+        .scalar() or 0
+    
+    total_withdrawn = db.query(func.sum(models.WithdrawReward.amount)) \
+        .filter(models.WithdrawReward.agent_id == agent_id, models.WithdrawReward.status == 'approved') \
+        .scalar() or 0
+        
+    return float(total_rewards) - float(total_withdrawn)
+
+@router.post("/address", status_code=status.HTTP_201_CREATED)
+def add_address_to_agent(request: AddressAgentCreate, db: Session = Depends(database.get_db), current_user: models.User = Depends(auth.get_current_user)):
+    # Check if user is admin or the agent themselves
+    if current_user.user_type_id != constants.ADMIN and current_user.id != request.agent_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to perform this action")
+
+    # Check if agent and address exist
+    agent = db.query(models.User).filter(models.User.id == request.agent_id).first()
+    if not agent or agent.user_type_id != constants.AGENT: # Agent user_type_id is 2
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Agent not found")
+    
+    address = db.query(models.Address).filter(models.Address.address_id == request.address_id).first()
+    if not address:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Address not found")
+        
+    # Check if association already exists
+    existing_link = db.query(models.AddressAgent).filter_by(agent_id=request.agent_id, address_id=request.address_id).first()
+    if existing_link:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="This address is already assigned to the agent")
+
+    new_address_agent = models.AddressAgent(**request.dict())
+    db.add(new_address_agent)
+    db.commit()
+    db.refresh(new_address_agent)
+    return new_address_agent
+
+@router.delete("/address/{address_agent_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_agent_address(address_agent_id: int, db: Session = Depends(database.get_db), current_user: models.User = Depends(auth.get_current_user)):
+    link = db.query(models.AddressAgent).filter(models.AddressAgent.id == address_agent_id).first()
+    
+    if not link:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Address-agent link not found")
+
+    # Check if user is admin or the agent themselves
+    if current_user.user_type_id != constants.ADMIN and current_user.id != link.agent_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to perform this action")
+
+    db.delete(link)
+    db.commit()
+    return
+
+@router.put("/address/{address_agent_id}")
+def edit_agent_address(address_agent_id: int, request: AddressAgentUpdate, db: Session = Depends(database.get_db), current_user: models.User = Depends(auth.get_current_user)):
+    link = db.query(models.AddressAgent).filter(models.AddressAgent.id == address_agent_id).first()
+    
+    if not link:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Address-agent link not found")
+
+    if current_user.user_type_id != constants.ADMIN and current_user.id != link.agent_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to perform this action")
+
+    address = db.query(models.Address).filter(models.Address.address_id == request.address_id).first()
+    if not address:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="New address not found")
+        
+    link.address_id = request.address_id
+    db.commit()
+    db.refresh(link)
+    return link
+
+@router.get("/withdrawals", response_model=List[WithdrawRewardOut])
+def get_withdrawals(db: Session = Depends(database.get_db), current_user: models.User = Depends(auth.get_current_user)):
+    if current_user.user_type_id != AGENT:
+        raise HTTPException(status_code=403, detail="User is not an agent")
+    
+    withdrawals = db.query(models.WithdrawReward).filter(models.WithdrawReward.agent_id == current_user.id).order_by(models.WithdrawReward.submit_datetime.desc()).all()
+    return withdrawals
+
+@router.post("/withdraw")
+def request_withdrawal(amount: float = Body(..., gt=0), db: Session = Depends(database.get_db), current_user: models.User = Depends(auth.get_current_user)):
+    if current_user.user_type_id != AGENT:
+        raise HTTPException(status_code=403, detail="User is not an agent")
+
+    if amount <= 0:
+        raise HTTPException(status_code=400, detail="Withdrawal amount must be positive")
+
+    balance_record = db.query(models.AgentBalance).filter(models.AgentBalance.user_id == current_user.id).first()
+    current_balance = balance_record.balance if balance_record else 0
+    
+    if amount > current_balance:
+        raise HTTPException(status_code=400, detail=f"Withdrawal amount exceeds current balance of {current_balance}")
+
+    new_withdrawal = models.WithdrawReward(
+        agent_id=current_user.id,
+        amount=amount,
+        status=PENDING,
+        submit_datetime=datetime.utcnow()
+    )
+    db.add(new_withdrawal)
+    db.commit()
+    db.refresh(new_withdrawal)
+    return new_withdrawal
+
+@router.get("/status")
+def get_agent_status(db: Session = Depends(database.get_db), current_user: models.User = Depends(auth.get_current_user)):
+    if current_user.user_type_id != AGENT:
+        raise HTTPException(status_code=403, detail="User is not an agent")
+
+    if not current_user.is_affiliate:
+        return {"is_affiliate": False, "balance": 0, "pending_withdrawal": 0}
+
+    balance_record = db.query(models.AgentBalance).filter(models.AgentBalance.user_id == current_user.id).first()
+    balance = balance_record.balance if balance_record else 0
+
+    pending_withdrawal = db.query(func.sum(models.WithdrawReward.amount)).filter(
+        models.WithdrawReward.agent_id == current_user.id,
+        models.WithdrawReward.status == PENDING
+    ).scalar() or 0
+
+    return {
+        "is_affiliate": True,
+        "balance": balance,
+        "pending_withdrawal": pending_withdrawal
+    }

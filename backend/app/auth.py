@@ -8,6 +8,7 @@ from datetime import datetime, timedelta
 from pydantic import BaseModel, EmailStr
 from app.utils import get_password_hash, verify_password
 from typing import Optional
+from . import constants
 
 SECRET_KEY = "supersecretkey"  # In production, use env var
 ALGORITHM = "HS256"
@@ -42,6 +43,31 @@ class Token(BaseModel):
 class TokenAndUser(Token):
     user: UserOut
 
+def create_access_token(data: dict, expires_delta: timedelta = None):
+    to_encode = data.copy()
+    expire = datetime.utcnow() + (expires_delta or timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
+    to_encode.update({"exp": expire})
+    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    return encoded_jwt
+
+def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(database.get_db)):
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        email: str = payload.get("sub")
+        if email is None:
+            raise credentials_exception
+    except JWTError:
+        raise credentials_exception
+    user = db.query(models.User).filter(models.User.email == email).first()
+    if user is None:
+        raise credentials_exception
+    return user
+
 @router.post("/register", response_model=TokenAndUser)
 def register(user: UserCreate, db: Session = Depends(database.get_db)):
     db_user = db.query(models.User).filter(models.User.email == user.email).first()
@@ -51,27 +77,31 @@ def register(user: UserCreate, db: Session = Depends(database.get_db)):
     new_user = models.User(
         username=user.username,
         email=user.email,
-        password_hash=hashed_password,
+        hashed_password=hashed_password,
         phone=user.phone,
         user_type_id=user.user_type_id
     )
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
-    access_token = create_access_token(data={"sub": new_user.email})
+    token_data = {
+        "sub": new_user.email,
+        "user_id": new_user.id,
+        "user_type_id": new_user.user_type_id
+    }
+    access_token = create_access_token(data=token_data)
     return {"access_token": access_token, "token_type": "bearer", "user": new_user}
 
 @router.post("/login", response_model=TokenAndUser)
 def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(database.get_db)):
     user = db.query(models.User).filter(models.User.email == form_data.username).first()
-    if not user or not verify_password(form_data.password, user.password_hash):
+    if not user or not verify_password(form_data.password, user.hashed_password):
         raise HTTPException(status_code=401, detail="Incorrect email or password")
-    access_token = create_access_token(data={"sub": user.email})
-    return {"access_token": access_token, "token_type": "bearer", "user": user}
-
-def create_access_token(data: dict, expires_delta: timedelta = None):
-    to_encode = data.copy()
-    expire = datetime.utcnow() + (expires_delta or timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
-    to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
-    return encoded_jwt 
+    
+    token_data = {
+        "sub": user.email,
+        "user_id": user.id,
+        "user_type_id": user.user_type_id
+    }
+    access_token = create_access_token(data=token_data)
+    return {"access_token": access_token, "token_type": "bearer", "user": user} 

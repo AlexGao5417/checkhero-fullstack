@@ -1,13 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { Table, Button, Modal, Form, Input, Select, Popconfirm, Space, Pagination, notification, Row, Col } from 'antd';
-import axios from 'axios';
+import { Table, Button, Modal, Form, Input, Select, Popconfirm, Space, Pagination, notification, Row, Col, message, Switch } from 'antd';
+import { CheckCircleFilled, CloseCircleFilled } from '@ant-design/icons';
+import axios from '@utils/axios';
+import { USER_ROLES } from '@utils/constants';
 
 const { Option } = Select;
 
 const userTypes = [
-  { value: 1, label: 'Admin' },
-  { value: 2, label: 'Agent' },
-  { value: 3, label: 'Electrician' },
+  { value: USER_ROLES.ADMIN, label: 'Admin' },
+  { value: USER_ROLES.AGENT, label: 'Agent' },
+  { value: USER_ROLES.ELECTRICIAN, label: 'Electrician' },
 ];
 
 const PAGE_SIZE = 5;
@@ -17,6 +19,8 @@ const UserManagement = () => {
   const [users, setUsers] = useState([]);
   const [total, setTotal] = useState(0);
   const [isModalVisible, setIsModalVisible] = useState(false);
+  const [isDeleteModalVisible, setIsDeleteModalVisible] = useState(false);
+  const [userToDelete, setUserToDelete] = useState(null);
   const [isEdit, setIsEdit] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
   const [form] = Form.useForm();
@@ -81,7 +85,11 @@ const UserManagement = () => {
   const showEditModal = (record) => {
     setIsEdit(true);
     setEditingUser(record);
-    form.setFieldsValue({ ...record, userType: record.userType });
+    form.setFieldsValue({
+      ...record,
+      user_type_id: record.user_type_id,
+      is_affiliate: record.is_affiliate,
+    });
     setIsModalVisible(true);
   };
 
@@ -89,6 +97,19 @@ const UserManagement = () => {
     setIsModalVisible(false);
     setEditingUser(null);
     form.resetFields();
+  };
+
+  const showDeleteModal = (record) => {
+    setUserToDelete(record);
+    setIsDeleteModalVisible(true);
+  };
+
+  const handleDeleteConfirm = () => {
+    if (userToDelete) {
+      handleDelete(userToDelete.id);
+    }
+    setIsDeleteModalVisible(false);
+    setUserToDelete(null);
   };
 
   const handleDelete = async (key) => {
@@ -105,29 +126,30 @@ const UserManagement = () => {
     }
   };
 
-  const handleOk = async (values) => {
+  const handleOk = async () => {
     try {
-      console.log('Received values of form: ', values);
-      values = await form.validateFields();
+      const values = await form.validateFields();
+      const token = localStorage.getItem('token');
+
       if (isEdit && editingUser) {
-        await axios.put(`${API_BASE}/users/${editingUser.key}`, {
-          username: values.username,
-          email: values.email,
-          password: values.password || undefined,
-          phone: values.phone,
-          user_type_id: values.user_type_id,
-        });
-        notification.success({ message: 'User updated' });
+        // Use the admin endpoint for edits
+        const url = `${API_BASE}/users/admin/${editingUser.id}`;
+        const payload = { ...values };
+
+        if (editingUser.user_type_id !== USER_ROLES.AGENT) {
+          delete payload.is_affiliate;
+        }
+        await axios.put(url, payload);
+        message.success('User updated successfully');
+
       } else {
+        // Use the creation endpoint for new users
         await axios.post(`${API_BASE}/users/`, {
-          username: values.username,
-          email: values.email,
-          password: values.password,
-          phone: values.phone,
-          user_type_id: values.user_type_id,
+          ...values,
         });
-        notification.success({ message: 'User created' });
+        message.success('User created successfully');
       }
+
       setIsModalVisible(false);
       setEditingUser(null);
       form.resetFields();
@@ -137,23 +159,50 @@ const UserManagement = () => {
         user_type: searchUserType,
       });
     } catch (err) {
-      notification.error({ message: 'Failed to save user', description: err.response?.data?.detail || err.message });
+      console.error('Failed to save user:', err);
+      message.error(err.response?.data?.detail || 'Failed to save user');
     }
   };
 
   const columns = [
     { title: 'Username', dataIndex: 'username', key: 'username' },
     { title: 'Email', dataIndex: 'email', key: 'email' },
-    { title: 'User Type', dataIndex: 'user_type_id', key: 'user_type_id', render: (type) => userTypes.find(u => u.value === type)?.label },
+    {
+        title: 'User Type',
+        dataIndex: 'user_type',
+        key: 'user_type',
+    },
+    {
+        title: 'Affiliate',
+        dataIndex: 'is_affiliate',
+        key: 'is_affiliate',
+        render: (is_affiliate, record) => {
+            if (record.user_type_id !== USER_ROLES.AGENT) {
+                return 'N/A';
+            }
+            return is_affiliate
+                ? <CheckCircleFilled style={{ color: 'green', fontSize: '18px' }} />
+                : <CloseCircleFilled style={{ color: 'red', fontSize: '18px' }} />;
+        },
+    },
+    {
+        title: 'Balance',
+        dataIndex: 'balance',
+        key: 'balance',
+        render: (balance, record) => {
+            if (record.user_type_id !== USER_ROLES.AGENT || !record.is_affiliate) {
+                return 'N/A';
+            }
+            return balance !== null ? `$${balance.toFixed(2)}` : 'N/A';
+        },
+    },
     {
       title: 'Actions',
       key: 'actions',
       render: (_, record) => (
         <Space>
           <Button type="link" onClick={() => showEditModal(record)}>Edit</Button>
-          <Popconfirm title="Are you sure to delete this user?" onConfirm={() => handleDelete(record.key)} okText="Yes" cancelText="No">
-            <Button type="link" danger>Delete</Button>
-          </Popconfirm>
+          <Button type="link" danger onClick={() => showDeleteModal(record)}>Delete</Button>
         </Space>
       ),
     },
@@ -227,53 +276,57 @@ const UserManagement = () => {
       <Modal
         open={isModalVisible}
         title={isEdit ? 'Edit User' : 'Add User'}
-        okText="Create"
+        okText={isEdit ? 'Save' : 'Create'}
         cancelText="Cancel"
-        okButtonProps={{ autoFocus: true, htmlType: 'submit' }}
         onCancel={handleCancel}
+        onOk={handleOk}
         destroyOnHidden
-        modalRender={dom => (
-          <Form
-            layout="vertical"
-            form={form}
-            name="form_in_modal"
-            clearOnDestroy
-            onFinish={values => handleOk(values)}
-          >
-            {dom}
-          </Form>
-        )}
       >
-        <Form.Item
-          name="username"
-          label="Username"
-          rules={[{ required: true, message: 'Please input the username!' }]}
-        >
-          <Input />
-        </Form.Item>
-        <Form.Item
-          name="email"
-          label="Email"
-          rules={[{ required: true, message: 'Please input a valid email!', type: 'email' }]}
-        >
-          <Input />
-        </Form.Item>
-        {!isEdit && <Form.Item
-          name="password"
-          label="Password"
-          rules={[{ required: true, message: 'Please input a password!', type: 'password' }]}
-        >
-          <Input.Password />
-        </Form.Item>}
-        <Form.Item
-          name="phone"
-          label="Phone Number"
-        >
-          <Input />
-        </Form.Item>
-        <Form.Item name="user_type_id" label="User Type" rules={[{ required: true, message: 'Please select a user type!' }]}> 
-          <Select> {userTypes.map(type => <Option key={type.value} value={type.value}>{type.label}</Option>)} </Select> 
-        </Form.Item>
+        <Form form={form} layout="vertical" name="user_form" initialValues={{ is_affiliate: false }}>
+            <Form.Item name="username" label="Username" rules={[{ required: true, message: 'Please input the username!' }]}>
+                <Input />
+            </Form.Item>
+            <Form.Item name="email" label="Email" rules={[{ required: true, type: 'email', message: 'Please input a valid email!' }]}>
+                <Input />
+            </Form.Item>
+            <Form.Item name="phone" label="Phone">
+                <Input />
+            </Form.Item>
+            <Form.Item name="user_type_id" label="User Type" rules={[{ required: true, message: 'Please select a user type!' }]}>
+                <Select placeholder="Select a user type">
+                    {userTypes.map(type => (
+                        <Option key={type.value} value={type.value}>{type.label}</Option>
+                    ))}
+                </Select>
+            </Form.Item>
+            {editingUser?.user_type_id === USER_ROLES.AGENT && (
+                <Form.Item name="is_affiliate" label="Is Affiliate?" valuePropName="checked">
+                    <Switch />
+                </Form.Item>
+            )}
+        </Form>
+      </Modal>
+
+      <Modal
+        title="Confirm Deletion"
+        open={isDeleteModalVisible}
+        onOk={handleDeleteConfirm}
+        onCancel={() => setIsDeleteModalVisible(false)}
+        okText="Confirm Delete"
+        cancelText="Cancel"
+        okButtonProps={{ danger: true }}
+      >
+        {userToDelete && (
+          <div>
+            <p>Are you sure you want to delete the user <strong>{userToDelete.username}</strong>?</p>
+            {userToDelete.user_type_id === USER_ROLES.AGENT && userToDelete.balance > 0 && (
+              <p style={{ color: 'red', fontWeight: 'bold' }}>
+                WARNING: This agent has a remaining balance of ${userToDelete.balance.toFixed(2)}. Deleting this user is irreversible.
+              </p>
+            )}
+            <p>This action cannot be undone.</p>
+          </div>
+        )}
       </Modal>
     </div>
   );

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useDispatch } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import { Form, Input, Button, notification } from 'antd';
-import axios from 'axios';
+import axios from '@utils/axios';
 import { loginSuccess } from '../../redux/authSlice';
 
 const LoginPage = () => {
@@ -14,10 +14,11 @@ const LoginPage = () => {
         setLoading(true);
         try {
             const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-            const response = await axios.post(`${apiUrl}/auth/login`, new URLSearchParams(values));
+            const response = await axios.post(`/auth/login`, new URLSearchParams(values));
             const { access_token, user } = response.data;
-            axios.defaults.headers.common['Authorization'] = `Bearer ${access_token}`;
-            dispatch(loginSuccess(user));
+            // Save token to Redux and localStorage for persistence
+            dispatch(loginSuccess({ user, token: access_token }));
+            localStorage.setItem('token', access_token);
         } catch (error) {
             notification.error({
                 message: 'Login Failed',

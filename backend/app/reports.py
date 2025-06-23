@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, Query, HTTPException, Body
 from sqlalchemy.orm import Session, joinedload
-from app import models, database, checkhero
+from app import models, database, checkhero, auth
 import boto3
 from botocore.exceptions import NoCredentialsError
 from pydantic import BaseModel
@@ -15,7 +15,9 @@ from botocore.client import Config
 
 load_dotenv()
 
-router = APIRouter()
+router = APIRouter(
+    dependencies=[Depends(auth.get_current_user)]
+)
 
 # --- S3 Configuration ---
 S3_BUCKET = os.environ.get("S3_BUCKET_NAME")
@@ -47,6 +49,7 @@ class ReportOut(BaseModel):
     address: str
     publisher: str
     publisher_id: int
+    report_type_id: int
     created_date: str
     review_date: Optional[str]
     status: str
@@ -55,19 +58,24 @@ class ReportOut(BaseModel):
     reviewer_id: Optional[int]
     form_data: Optional[dict]
     pdf_url: Optional[str]
+    reward: Optional[float] = None
+    agent_id: Optional[int] = None
+    agent_is_affiliate: Optional[bool] = None
     class Config:
         orm_mode = True
 
 class ReportCreate(BaseModel):
     form_data: dict
-    publisher_id: int
     address: str
+    report_type_id: int
 
 class ReportUpdate(BaseModel):
     form_data: Optional[dict] = None
-    is_approved: Optional[bool] = None
-    reviewer_id: Optional[int] = None
     comment: Optional[str] = None
+
+class ApproveReportRequest(BaseModel):
+    comment: Optional[str]
+    reward: Optional[float]
 
 def get_dummy_reports(user_type, user_id):
     dummy = [
@@ -104,18 +112,20 @@ def get_dummy_reports(user_type, user_id):
 
 @router.get("/", response_model=List[ReportOut])
 def get_reports(
-    user_type_id: int = Query(...),
-    user_id: int = Query(...),
-    db: Session = Depends(database.get_db)
+    db: Session = Depends(database.get_db),
+    current_user: models.User = Depends(auth.get_current_user)
 ):
-    # Try to fetch from DB, fallback to dummy if empty
     reports = []
-    if user_type_id == 1:
-        reports = db.query(models.Report).options(joinedload(models.Report.publisher)).all()
-    elif user_type_id == 3:
-        reports = db.query(models.Report).filter(models.Report.publisher_id == user_id).options(joinedload(models.Report.publisher)).all()
+    if current_user.user_type_id == 1:  # Admin
+        reports = db.query(models.Report).options(joinedload(models.Report.publisher), joinedload(models.Report.reviewer)).all()
+    elif current_user.user_type_id == 3:  # Agent
+        # An agent sees reports they published
+        reports = db.query(models.Report).filter(models.Report.publisher_id == current_user.id).options(joinedload(models.Report.publisher), joinedload(models.Report.reviewer)).all()
+    elif current_user.user_type_id == 2: # User (assuming they can also be publishers)
+        reports = db.query(models.Report).filter(models.Report.publisher_id == current_user.id).options(joinedload(models.Report.publisher), joinedload(models.Report.reviewer)).all()
     else:
         reports = []
+    
     result = []
     for r in reports:
         form_data = None
@@ -133,6 +143,7 @@ def get_reports(
             address=r.address,
             publisher=r.publisher.username if r.publisher else 'N/A',
             publisher_id=r.publisher_id,
+            report_type_id=r.report_type_id,
             created_date=r.created_date, # Use the string directly
             review_date=review_date_str,
             status=r.status,
@@ -140,10 +151,54 @@ def get_reports(
             reviewer=r.reviewer.username if r.reviewer else 'N/A',
             reviewer_id=r.reviewer_id,
             form_data=form_data,
-            pdf_url=r.pdf_url
+            pdf_url=r.pdf_url,
+            reward=r.reward
         ))
 
     return result
+
+@router.get("/{report_id}", response_model=ReportOut)
+def get_report(report_id: int, db: Session = Depends(database.get_db), current_user: models.User = Depends(auth.get_current_user)):
+    report_query = db.query(models.Report).options(
+        joinedload(models.Report.publisher).options(joinedload(models.User.agent_balance)),
+        joinedload(models.Report.reviewer)
+    )
+    db_report = report_query.filter(models.Report.id == report_id).first()
+
+    if not db_report:
+        raise HTTPException(status_code=404, detail="Report not found")
+        
+    # Check authorization
+    is_admin = current_user.user_type_id == 1
+    is_publisher = db_report.publisher_id == current_user.id
+    
+    if not is_admin and not is_publisher:
+        raise HTTPException(status_code=403, detail="Not authorized to view this report")
+
+    form_data = json.loads(db_report.form_data) if db_report.form_data else None
+    
+    agent_is_affiliate = None
+    if db_report.publisher and db_report.publisher.user_type_id == 2: # AGENT
+        agent_is_affiliate = db_report.publisher.is_affiliate
+
+    return ReportOut(
+        id=db_report.id,
+        address=db_report.address,
+        publisher=db_report.publisher.username if db_report.publisher else 'N/A',
+        publisher_id=db_report.publisher_id,
+        report_type_id=db_report.report_type_id,
+        created_date=db_report.created_date.isoformat(),
+        review_date=db_report.review_date.isoformat() if db_report.review_date else None,
+        status=db_report.status,
+        comment=db_report.comment,
+        reviewer=db_report.reviewer.username if db_report.reviewer else 'N/A',
+        reviewer_id=db_report.reviewer_id,
+        form_data=form_data,
+        pdf_url=db_report.pdf_url,
+        reward=db_report.reward,
+        agent_id=db_report.publisher_id if db_report.publisher.user_type_id == 2 else None,
+        agent_is_affiliate=agent_is_affiliate
+    )
 
 @router.get("/presigned-url/")
 def get_presigned_url(
@@ -168,7 +223,7 @@ def get_presigned_url(
         raise HTTPException(status_code=500, detail=f"Failed to generate presigned URL: {e}")
 
 @router.post("/create")
-def create_report(report_data: ReportCreate, db: Session = Depends(database.get_db)):
+def create_report(report_data: ReportCreate, db: Session = Depends(database.get_db), current_user: models.User = Depends(auth.get_current_user)):
     temp_filename = f"/tmp/{uuid.uuid4()}.pdf"
     checkhero.generate_report(report_data.form_data, filename=temp_filename)
     
@@ -178,9 +233,10 @@ def create_report(report_data: ReportCreate, db: Session = Depends(database.get_
     os.remove(temp_filename)
 
     new_report = models.Report(
-        form_data=report_data.form_data,
-        publisher_id=report_data.publisher_id,
+        form_data=json.dumps(report_data.form_data),
+        publisher_id=current_user.id,
         address=report_data.address,
+        report_type_id=report_data.report_type_id,
         status="draft",
         pdf_url=pdf_url,
         created_date=datetime.utcnow()
@@ -190,26 +246,66 @@ def create_report(report_data: ReportCreate, db: Session = Depends(database.get_
     db.refresh(new_report)
     return new_report
 
-@router.put("/update/{report_id}")
-def update_report(report_id: int, update_data: ReportUpdate, db: Session = Depends(database.get_db)):
+@router.put("/update/{report_id}", response_model=ReportOut)
+def update_report(report_id: int, update_data: ReportUpdate, db: Session = Depends(database.get_db), current_user: models.User = Depends(auth.get_current_user)):
     db_report = db.query(models.Report).filter(models.Report.id == report_id).first()
     if not db_report:
         raise HTTPException(status_code=404, detail="Report not found")
 
     if update_data.form_data:
-        db_report.form_data = update_data.form_data
+        db_report.form_data = json.dumps(update_data.form_data)
+        # Also regenerate PDF
+        temp_filename = f"/tmp/{uuid.uuid4()}.pdf"
+        checkhero.generate_report(update_data.form_data, filename=temp_filename)
+        s3_filename = f"reports/{uuid.uuid4()}.pdf"
+        pdf_url = upload_to_s3(temp_filename, s3_filename)
+        os.remove(temp_filename)
+        db_report.pdf_url = pdf_url
 
-    if update_data.is_approved is not None:
-        db_report.status = "approved" if update_data.is_approved else "denied"
-        db_report.review_date = datetime.utcnow()
-        if update_data.comment:
-            db_report.comment = update_data.comment
-        if update_data.reviewer_id:
-            db_report.reviewer_id = update_data.reviewer_id
+    if update_data.comment:
+        db_report.comment = update_data.comment
+    
+    db.commit()
+    db.refresh(db_report)
+    
+    # Reload relationships to return full data
+    return get_report(report_id, db, current_user)
+
+@router.put("/approve/{report_id}", response_model=ReportOut)
+def approve_report(report_id: int, request_data: ApproveReportRequest, db: Session = Depends(database.get_db), current_user: models.User = Depends(auth.get_current_user)):
+    if current_user.user_type_id != 1: # ADMIN
+        raise HTTPException(status_code=403, detail="Only admins can approve reports.")
+
+    db_report = db.query(models.Report).options(joinedload(models.Report.publisher)).filter(models.Report.id == report_id).first()
+    if not db_report:
+        raise HTTPException(status_code=404, detail="Report not found")
+
+    db_report.status = "approved"
+    db_report.review_date = datetime.utcnow()
+    db_report.reviewer_id = current_user.id
+    if request_data.comment:
+        db_report.comment = request_data.comment
+
+    # Handle reward for affiliated agents
+    agent = db_report.publisher
+    if agent and agent.user_type_id == 2 and agent.is_affiliate: # AGENT
+        if request_data.reward is None or request_data.reward <= 0:
+            raise HTTPException(status_code=400, detail="A positive reward is required for an affiliated agent.")
+        
+        db_report.reward = request_data.reward
+        
+        # Update agent balance
+        agent_balance = db.query(models.AgentBalance).filter(models.AgentBalance.user_id == agent.id).first()
+        if agent_balance:
+            agent_balance.balance += request_data.reward
+        else:
+            # Create a balance record if it doesn't exist
+            new_balance = models.AgentBalance(user_id=agent.id, balance=request_data.reward)
+            db.add(new_balance)
 
     db.commit()
     db.refresh(db_report)
-    return db_report
+    return get_report(report_id, db, current_user)
 
 @router.delete("/delete/{report_id}")
 def delete_report(report_id: int, db: Session = Depends(database.get_db)):

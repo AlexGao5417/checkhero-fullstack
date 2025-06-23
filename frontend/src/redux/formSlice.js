@@ -1,5 +1,6 @@
 import { createSlice } from '@reduxjs/toolkit';
 import { initialFormData } from '../utils/formInitialState';
+import { REPORT_TYPES } from '../utils/constants';
 
 // Gas form initial data
 const gasFormInitialData = {
@@ -63,19 +64,55 @@ const gasFormInitialData = {
   annexPhotos: []
 };
 
+const smokeFormInitialData = {
+  propertyDetails: {
+    propertyAddress: "449 Mount Dandenong Road, Kilsyth",
+    dateOfInspection: "2024-02-02"
+  },
+  inspectorDetails: {
+    inspectorName: "support@checkhero.com.au",
+    inspectorSignature: "https://placehold.co/600x400/FF5733/FFFFFF?text=Fault+Image+1"
+  },
+  agentName: "John Doe",
+  smokeAlarmDetails: [
+      {
+          voltage: "120",
+          status: "Pass",
+          location: "Kitchen",
+          expiration: "2024-02-02"
+      },
+      {
+          voltage: "120",
+          status: "Pass",
+          location: "Kitchen",
+          expiration: "2024-02-02"
+      }
+  ],
+  imageAppendix: [
+      {
+          image: "https://placehold.co/600x400/FF5733/FFFFFF?text=Fault+Image+1",
+          description: "Kitchen"
+      },
+      {
+          image: "https://placehold.co/600x400/FF5733/FFFFFF?text=Fault+Image+1",
+          description: "Kitchen"
+      }
+  ]
+};
+
 const formSlice = createSlice({
   name: 'forms',
   initialState: {
-    electricityAndSmokeForm: {
+    [REPORT_TYPES.ELECTRICITY_AND_SMOKE]: {
       formData: initialFormData,
       currentStep: 1,
     },
-    gasForm: {
+    [REPORT_TYPES.GAS]: {
       formData: gasFormInitialData,
       currentStep: 1,
     },
-    smokeForm: {
-      formData: {}, // Will be defined later
+    [REPORT_TYPES.SMOKE]: {
+      formData: smokeFormInitialData,
       currentStep: 1,
     },
   },
@@ -106,10 +143,12 @@ const formSlice = createSlice({
     },
     resetForm: (state, action) => {
       const { formType } = action.payload;
-      if (formType === 'electricityAndSmokeForm') {
+      if (formType === REPORT_TYPES.ELECTRICITY_AND_SMOKE) {
         state[formType].formData = initialFormData;
-      } else if (formType === 'gasForm') {
+      } else if (formType === REPORT_TYPES.GAS) {
         state[formType].formData = gasFormInitialData;
+      } else if (formType === REPORT_TYPES.SMOKE) {
+        state[formType].formData = smokeFormInitialData;
       }
       state[formType].currentStep = 1;
     },
