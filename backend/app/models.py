@@ -10,7 +10,7 @@ Base = declarative_base()
 class UserType(Base):
     __tablename__ = "user_types"
     id = Column(Integer, primary_key=True, index=True)
-    type = Column(String, unique=True, nullable=False)  # admin, electrician, agent
+    type = Column(String, unique=True, nullable=False)  # admin, user, agent
 
 class ReportType(Base):
     __tablename__ = "report_types"
@@ -38,7 +38,8 @@ class User(Base):
 class Report(Base):
     __tablename__ = "reports"
     id = Column(Integer, primary_key=True, index=True)
-    address = Column(String, nullable=False)
+    address = relationship("Address")
+    address_id = Column(Integer, ForeignKey("addresses.id"), nullable=True)
     publisher_id = Column(Integer, ForeignKey("users.id"))
     publisher = relationship("User", foreign_keys=[publisher_id], back_populates="published_reports")
     created_date = Column(String, nullable=False)
@@ -57,13 +58,13 @@ class Report(Base):
 
 class Address(Base):
     __tablename__ = "addresses"
-    address_id = Column(Integer, primary_key=True, index=True)
+    id = Column(Integer, primary_key=True, index=True)
     address = Column(String, nullable=False)
 
 class AddressAgent(Base):
     __tablename__ = "address_agent"
     id = Column(Integer, primary_key=True, index=True)
-    address_id = Column(Integer, ForeignKey('addresses.address_id'), nullable=False)
+    address_id = Column(Integer, ForeignKey('addresses.id'), nullable=False)
     agent_id = Column(Integer, ForeignKey('users.id'), nullable=False)
 
 class AgentBalance(Base):

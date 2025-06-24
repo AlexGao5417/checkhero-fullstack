@@ -58,7 +58,7 @@ const Sidebar = () => {
 
   const isAdmin = user.user_type_id === USER_ROLES.ADMIN;
   const isAgent = user.user_type_id === USER_ROLES.AGENT;
-  const isElectrician = user.user_type_id === USER_ROLES.ELECTRICIAN;
+  const isElectrician = user.user_type_id === USER_ROLES.USER;
 
   const menuItems = [
     { key: 'account', icon: <UserOutlined />, label: <Link to="/account">My Account</Link> },

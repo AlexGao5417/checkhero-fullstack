@@ -38,11 +38,11 @@ class UserUpdate(BaseModel):
     email: Optional[EmailStr]
     password: Optional[str]
     phone: Optional[str]
+    is_affiliate: Optional[bool] = None
 
 class AdminUserUpdate(BaseModel):
     username: Optional[str]
     email: Optional[EmailStr]
-    password: Optional[str]
     phone: Optional[str]
     user_type_id: Optional[int]
     is_affiliate: Optional[bool] = None

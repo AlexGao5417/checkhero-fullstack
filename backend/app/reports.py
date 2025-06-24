@@ -11,6 +11,7 @@ import uuid
 from datetime import datetime
 from dotenv import load_dotenv
 from botocore.client import Config
+from app import constants
 
 
 load_dotenv()
@@ -76,39 +77,6 @@ class ReportUpdate(BaseModel):
 class ApproveReportRequest(BaseModel):
     comment: Optional[str]
     reward: Optional[float]
-
-def get_dummy_reports(user_type, user_id):
-    dummy = [
-        models.Report(
-            id=1,
-            address='123 Main St',
-            publisher='Alice',
-            publisher_id=101,
-            created_date='2024-06-01',
-            review_date='2024-06-10',
-            status='draft',
-            comment='Needs more info',
-            reviewer='Bob',
-            form_data=json.dumps({"electricalSafetyCheck": True})
-        ),
-        models.Report(
-            id=2,
-            address='456 Oak Ave',
-            publisher='Charlie',
-            publisher_id=102,
-            created_date='2024-06-02',
-            review_date='2024-06-11',
-            status='approved',
-            comment='All good',
-            reviewer='Dana',
-            form_data=json.dumps({"electricalSafetyCheck": False})
-        ),
-    ]
-    if user_type == 'admin':
-        return dummy
-    elif user_type == 'electrician':
-        return [r for r in dummy if r.publisher_id == user_id]
-    return []
 
 @router.get("/", response_model=List[ReportOut])
 def get_reports(
@@ -224,8 +192,35 @@ def get_presigned_url(
 
 @router.post("/create")
 def create_report(report_data: ReportCreate, db: Session = Depends(database.get_db), current_user: models.User = Depends(auth.get_current_user)):
+    # Extract address, address_id, and agent_id from form_data
+    form_data = report_data.form_data
+    address = form_data.get("propertyAddress") or report_data.address
+    address_id = form_data.get("address_id")
+    agent_id = form_data.get("agent_id")
+
+    # If address_id is missing but address is present, insert or get address
+    if address and not address_id:
+        # Try to find existing address
+        address_obj = db.query(models.Address).filter(models.Address.address == address).first()
+        if not address_obj:
+            # Insert new address
+            address_obj = models.Address(address=address)
+            db.add(address_obj)
+            db.commit()
+            db.refresh(address_obj)
+        address_id = address_obj.address_id
+        form_data["address_id"] = address_id
+
+    # If agent_id is present and address_id is missing (i.e., new address), link agent and address
+    if agent_id and address_id:
+        # Check if link already exists
+        link = db.query(models.AddressAgent).filter_by(address_id=address_id, agent_id=agent_id).first()
+        if not link:
+            db.add(models.AddressAgent(address_id=address_id, agent_id=agent_id))
+            db.commit()
+
     temp_filename = f"/tmp/{uuid.uuid4()}.pdf"
-    checkhero.generate_report(report_data.form_data, filename=temp_filename)
+    checkhero.generate_pdf_dispatcher(form_data, report_data.report_type_id, temp_filename)
     
     s3_filename = f"reports/{uuid.uuid4()}.pdf"
     pdf_url = upload_to_s3(temp_filename, s3_filename)
@@ -233,13 +228,14 @@ def create_report(report_data: ReportCreate, db: Session = Depends(database.get_
     os.remove(temp_filename)
 
     new_report = models.Report(
-        form_data=json.dumps(report_data.form_data),
+        form_data=json.dumps(form_data),
         publisher_id=current_user.id,
-        address=report_data.address,
+        address=address,
+        address_id=address_id,
         report_type_id=report_data.report_type_id,
         status="draft",
         pdf_url=pdf_url,
-        created_date=datetime.utcnow()
+        created_date=datetime.now(datetime.UTC)
     )
     db.add(new_report)
     db.commit()
@@ -256,7 +252,7 @@ def update_report(report_id: int, update_data: ReportUpdate, db: Session = Depen
         db_report.form_data = json.dumps(update_data.form_data)
         # Also regenerate PDF
         temp_filename = f"/tmp/{uuid.uuid4()}.pdf"
-        checkhero.generate_report(update_data.form_data, filename=temp_filename)
+        checkhero.generate_pdf_dispatcher(update_data.form_data, db_report.report_type_id, temp_filename)
         s3_filename = f"reports/{uuid.uuid4()}.pdf"
         pdf_url = upload_to_s3(temp_filename, s3_filename)
         os.remove(temp_filename)

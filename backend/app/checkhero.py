@@ -6,6 +6,7 @@ from reportlab.lib.units import mm
 from reportlab.lib.utils import ImageReader
 import requests
 from io import BytesIO
+from app import constants
 
 
 # Function to generate the PDF report
@@ -161,99 +162,216 @@ def generate_report(data, filename="generated_report.pdf"):
     # Build PDF
     doc.build(elements)
 
-# To generate the PDF, call:
-dummy_form_data = {
-        "propertyAddress": "449 Mount Dandenong Road, Kilsyth VIC 3137",
-        "reportDate": "2024-01-24",
-        "electricalSafetyCheck": False,
-        "smokeSafetyCheck": True,
-        "installationExtent": {
-            "Main Switchboard": True,
-            "Other living areas": True,
-            "Main earthing system": False,
-            "Laundry": True,
-            "Kitchen": True,
-            "Garage": False,
-            "Bathroom (main)": True,
-            "Solar/battery system": False,
-            "Other bathrooms/ensuites": True,
-            "Installation - Electric water heater": True,
-            "Bedroom (main)": True,
-            "Installation - Dishwasher": False,
-            "Other bedrooms": True,
-            "Installation - Electric room/space heaters": True,
-            "Living room": True,
-            "Installation - Swimming pool equipment": False,
-        },
-        "visualInspection": {
-            "Visual - Consumers mains": True,
-            "Visual - Space heaters": True,
-            "Visual - Switchboards": True,
-            "Visual - Cooking equipment": True,
-            "Visual - Exposed earth electrode": False,
-            "Visual - Dishwasher": False,
-            "Visual - Metallic water pipe bond": True,
-            "Visual - Exhaust fans": True,
-            "Visual - RCDs (Safety switches)": True,
-            "Visual - Celling fans": True,
-            "Visual - Circuit protection (circuit breakers/fuses)": True,
-            "Visual - Washing machinedryer/": True,
-            "Visual - Socket-outlets": True,
-            "Visual - Installation wiring": True,
-            "Visual - Light fittings": True,
-            "Visual - Solar and other renewable systems": False,
-            "Visual - Electric water heater": True,
-            "Visual - Swimming pool equipment": False,
-            "Visual - Air conditioners": True,
-            "Visual - Vehicle chargers": False,
-        },
-        "polarityTesting": {
-            "Polarity - Consumers mains": True,
-            "Polarity - Electric water heater": True,
-            "Polarity - Circuit protection (circuit breakers/fuses)": True,
-            "Polarity - Air conditioners": True,
-            "Polarity - RCDs (Safety switches)": True,
-            "Polarity - Cooking equipment": True,
-            "Polarity - Dishwasher": True,
-            "Polarity - Circuit protection (circuit breakers/fuses) (D2)": True,
-            "Polarity - Solar and other renewable systems": False,
-            "Polarity - Socket-outlets": True,
-            "Polarity - Swimming pool equipment": False,
-            "Polarity - Vehicle chargers": False,
-        },
-        "earthContinuityTesting": {
-            "Earth - Mains earth conductor": True,
-            "Earth - Electric water heater": True,
-            "Earth - Metallic water pipe bond": True,
-            "Earth - Air conditioners": True,
-            "Earth - Socket-outlets": True,
-            "Earth - Cooking equipment": True,
-            "Earth - Light fittings": True,
-            "Earth - Dishwasher": True,
-            "Earth - Exhaust fans": True,
-            "Earth - Solar and other renewable systems": False,
-            "Earth - Celling fans": True,
-            "Earth - Swimming pool equipment": False,
-            "Earth - Vehicle chargers": False,
-        },
-        "rcdTestingPassed": True,
-        "smokeAlarmsWorking": True,
-        "nextSmokeAlarmCheckDate": "2025-01-24",
-        "smokeAlarmDetails": [
-            {"voltage": "9V", "status": "Working", "location": "Hallway", "level": "LVL 1", "expiration": "2030-11-20"},
-            {"voltage": "9V", "status": "Working", "location": "Bedroom 1", "level": "LVL 1", "expiration": "2030-11-21"},
-        ],
-        "observation": "Sub board garage required upgrade.",
-        "recommendation": "Replace switchboard enclosure x1 main switch and x2 R.C.B.O x1 10amp x1 20amp.",
-        "images": [
-            # Example of a base64 encoded image (a very small red dot)
-            "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAUAAAAFCAYAAACNbyblAAAAHElEQVQI12P4//8/w38GIAXDIBKE0DHxgljNBAAO9TXL0Y4OHwAAAABJRU5ErkJggg==",
-             "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAUAAAAFCAYAAACNbyblAAAAHElEQVQI12P4//8/w38GIAXDIBKE0DHxgljNBAAO9TXL0Y4OHwAAAABJRU5ErkJggg=="
-        ],
-        "electricalSafetyCheckCompletedBy": "John Doe",
-        "licenceNumber": "EL123456",
-        "inspectionDate": "2024-01-24",
-        "nextInspectionDueDate": "2025-01-24",
-        "signatureDate": "2024-01-24",
-    }
-# generate_report(dummy_form_data)
+def generate_gas_pdf(data, filename="generated_gas_report.pdf"):
+    doc = SimpleDocTemplate(
+        filename,
+        pagesize=A4,
+        rightMargin=20 * mm,
+        leftMargin=20 * mm,
+        topMargin=20 * mm,
+        bottomMargin=20 * mm
+    )
+    styles = getSampleStyleSheet()
+    title_style = ParagraphStyle('Title', parent=styles['Heading1'], fontSize=18, textColor=colors.HexColor('#2E4A62'), spaceAfter=12)
+    section_style = ParagraphStyle('Section', parent=styles['Heading2'], fontSize=14, textColor=colors.HexColor('#1F618D'), spaceBefore=10, spaceAfter=6)
+    normal_style = ParagraphStyle('Normal', parent=styles['BodyText'], fontSize=10, leading=12)
+    elements = []
+
+    # Title
+    elements.append(Paragraph("Gas Safety Report", title_style))
+    elements.append(Paragraph(f"<b>Property Address:</b> {data.get('propertyAddress', '')}", normal_style))
+    elements.append(Paragraph(f"<b>Date of Inspection:</b> {data.get('dateOfInspection', '')}", normal_style))
+    elements.append(Paragraph(f"<b>Agent Name:</b> {data.get('agentName', '')}", normal_style))
+    inspector = data.get('inspectorDetails', {})
+    elements.append(Paragraph(f"<b>Inspector Name:</b> {inspector.get('inspectorName', '')}", normal_style))
+    elements.append(Spacer(1, 8))
+
+    # Checks Conducted
+    elements.append(Paragraph("Checks Conducted", section_style))
+    checks = data.get('checksConducted', {})
+    for k, v in checks.items():
+        elements.append(Paragraph(f"<b>{k}:</b> {v}", normal_style))
+    elements.append(Spacer(1, 8))
+
+    # Faults/Remedial Actions
+    elements.append(Paragraph("Faults/Remedial Actions", section_style))
+    faults = data.get('faultsRemedialActions', [])
+    if faults:
+        table_data = [["Observation", "Recommendation", "Image"]]
+        for f in faults:
+            table_data.append([
+                f.get('observation', ''),
+                f.get('recommendation', ''),
+                f.get('image', '')
+            ])
+        tbl = Table(table_data, colWidths=[40*mm, 60*mm, 50*mm])
+        tbl.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1F618D')),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+            ('ALIGN', (1, 1), (-1, -1), 'CENTER'),
+            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.whitesmoke, colors.lightgrey]),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ]))
+        elements.append(tbl)
+        elements.append(Spacer(1, 8))
+
+    # Gas Safety Report Details
+    elements.append(Paragraph("Gas Safety Report Details", section_style))
+    details = data.get('gasSafetyReportDetails', {})
+    for k, v in details.items():
+        elements.append(Paragraph(f"<b>{k}:</b> {v}", normal_style))
+    elements.append(Spacer(1, 8))
+
+    # Gas Installation
+    elements.append(Paragraph("Gas Installation", section_style))
+    install = data.get('gasInstallation', {})
+    for k, v in install.items():
+        elements.append(Paragraph(f"<b>{k}:</b> {v}", normal_style))
+    elements.append(Spacer(1, 8))
+
+    # Gas Appliances
+    elements.append(Paragraph("Gas Appliances", section_style))
+    appliances = data.get('gasAppliances', [])
+    if appliances:
+        table_data = [["Name", "Image", "Isolation Valve", "Electrically Safe", "Ventilation", "Clearances", "AS4575", "Comments"]]
+        for a in appliances:
+            table_data.append([
+                a.get('applianceName', ''),
+                a.get('applianceImage', ''),
+                a.get('isolationValvePresent', ''),
+                a.get('electricallySafe', ''),
+                a.get('adequateVentilation', ''),
+                a.get('adequateClearances', ''),
+                a.get('serviceInAccordanceWithAS4575', ''),
+                a.get('comments', '')
+            ])
+        tbl = Table(table_data, colWidths=[30*mm, 30*mm, 20*mm, 20*mm, 20*mm, 20*mm, 20*mm, 30*mm])
+        tbl.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1F618D')),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+            ('ALIGN', (1, 1), (-1, -1), 'CENTER'),
+            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.whitesmoke, colors.lightgrey]),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ]))
+        elements.append(tbl)
+        elements.append(Spacer(1, 8))
+
+    # Appliance Servicing Compliance
+    elements.append(Paragraph("Appliance Servicing Compliance", section_style))
+    compliance = data.get('applianceServicingCompliance', {})
+    for k, v in compliance.items():
+        elements.append(Paragraph(f"<b>{k}:</b> {v}", normal_style))
+    elements.append(Spacer(1, 8))
+
+    # Declaration
+    elements.append(Paragraph("Declaration", section_style))
+    declaration = data.get('declaration', {})
+    for k, v in declaration.items():
+        elements.append(Paragraph(f"<b>{k}:</b> {v}", normal_style))
+    elements.append(Spacer(1, 8))
+
+    # Annex Photos
+    elements.append(Paragraph("Annex Photos", section_style))
+    annex = data.get('annexPhotos', [])
+    if annex:
+        table_data = [["Appliance Name", "Photo URL"]]
+        for a in annex:
+            table_data.append([
+                a.get('applianceName', ''),
+                a.get('photoUrl', '')
+            ])
+        tbl = Table(table_data, colWidths=[60*mm, 100*mm])
+        tbl.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1F618D')),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+            ('ALIGN', (1, 1), (-1, -1), 'CENTER'),
+            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.whitesmoke, colors.lightgrey]),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ]))
+        elements.append(tbl)
+    doc.build(elements)
+
+
+def generate_smoke_pdf(data, filename="generated_smoke_report.pdf"):
+    doc = SimpleDocTemplate(
+        filename,
+        pagesize=A4,
+        rightMargin=20 * mm,
+        leftMargin=20 * mm,
+        topMargin=20 * mm,
+        bottomMargin=20 * mm
+    )
+    styles = getSampleStyleSheet()
+    title_style = ParagraphStyle('Title', parent=styles['Heading1'], fontSize=18, textColor=colors.HexColor('#2E4A62'), spaceAfter=12)
+    section_style = ParagraphStyle('Section', parent=styles['Heading2'], fontSize=14, textColor=colors.HexColor('#1F618D'), spaceBefore=10, spaceAfter=6)
+    normal_style = ParagraphStyle('Normal', parent=styles['BodyText'], fontSize=10, leading=12)
+    elements = []
+
+    # Title
+    elements.append(Paragraph("Smoke Alarm Report", title_style))
+    elements.append(Paragraph(f"<b>Property Address:</b> {data.get('propertyAddress', '')}", normal_style))
+    elements.append(Paragraph(f"<b>Date of Inspection:</b> {data.get('dateOfInspection', '')}", normal_style))
+    elements.append(Paragraph(f"<b>Agent Name:</b> {data.get('agentName', '')}", normal_style))
+    inspector = data.get('inspectorDetails', {})
+    elements.append(Paragraph(f"<b>Inspector Name:</b> {inspector.get('inspectorName', '')}", normal_style))
+    elements.append(Spacer(1, 8))
+
+    # Smoke Alarm Details
+    elements.append(Paragraph("Smoke Alarm Details", section_style))
+    alarms = data.get('smokeAlarmDetails', [])
+    if alarms:
+        table_data = [["Voltage", "Status", "Location", "Expiration"]]
+        for a in alarms:
+            table_data.append([
+                a.get('voltage', ''),
+                a.get('status', ''),
+                a.get('location', ''),
+                a.get('expiration', '')
+            ])
+        tbl = Table(table_data, colWidths=[30*mm, 30*mm, 60*mm, 40*mm])
+        tbl.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1F618D')),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+            ('ALIGN', (1, 1), (-1, -1), 'CENTER'),
+            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.whitesmoke, colors.lightgrey]),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ]))
+        elements.append(tbl)
+        elements.append(Spacer(1, 8))
+
+    # Image Appendix
+    elements.append(Paragraph("Image Appendix", section_style))
+    appendix = data.get('imageAppendix', [])
+    if appendix:
+        table_data = [["Image", "Description"]]
+        for a in appendix:
+            table_data.append([
+                a.get('image', ''),
+                a.get('description', '')
+            ])
+        tbl = Table(table_data, colWidths=[60*mm, 100*mm])
+        tbl.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1F618D')),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+            ('ALIGN', (1, 1), (-1, -1), 'CENTER'),
+            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.whitesmoke, colors.lightgrey]),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ]))
+        elements.append(tbl)
+    doc.build(elements)
+
+
+def generate_pdf_dispatcher(data, report_type, filename):
+    if report_type == constants.ELECTRICITY_AND_SMOKE_REPORT_TYPE:
+        return generate_report(data, filename)
+    elif report_type == constants.GAS_REPORT_TYPE:
+        return generate_gas_pdf(data, filename)
+    elif report_type == constants.SMOKE_REPORT_TYPE:
+        return generate_smoke_pdf(data, filename)
+    else:
+        raise ValueError(f"Unknown report type: {report_type}")

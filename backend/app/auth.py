@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Response, Request, Cookie
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from app import models, database, utils
@@ -13,6 +13,7 @@ from . import constants
 SECRET_KEY = "supersecretkey"  # In production, use env var
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60
+REFRESH_TOKEN_EXPIRE_DAYS = 1
 
 router = APIRouter()
 
@@ -45,8 +46,15 @@ class TokenAndUser(Token):
 
 def create_access_token(data: dict, expires_delta: timedelta = None):
     to_encode = data.copy()
-    expire = datetime.utcnow() + (expires_delta or timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
+    expire = datetime.now(datetime.UTC) + (expires_delta or timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
     to_encode.update({"exp": expire})
+    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    return encoded_jwt
+
+def create_refresh_token(data: dict, expires_delta: timedelta = None):
+    to_encode = data.copy()
+    expire = datetime.now(datetime.UTC) + (expires_delta or timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS))
+    to_encode.update({"exp": expire, "type": "refresh"})
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
 
@@ -69,7 +77,7 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
     return user
 
 @router.post("/register", response_model=TokenAndUser)
-def register(user: UserCreate, db: Session = Depends(database.get_db)):
+def register(user: UserCreate, db: Session = Depends(database.get_db), response: Response = None):
     db_user = db.query(models.User).filter(models.User.email == user.email).first()
     if db_user:
         raise HTTPException(status_code=400, detail="Email already registered")
@@ -90,18 +98,57 @@ def register(user: UserCreate, db: Session = Depends(database.get_db)):
         "user_type_id": new_user.user_type_id
     }
     access_token = create_access_token(data=token_data)
+    refresh_token = create_refresh_token(data=token_data)
+    if response:
+        response.set_cookie(
+            key="refresh_token",
+            value=refresh_token,
+            httponly=True,
+            secure=True,
+            samesite="strict",
+            max_age=REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60
+        )
     return {"access_token": access_token, "token_type": "bearer", "user": new_user}
 
 @router.post("/login", response_model=TokenAndUser)
-def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(database.get_db)):
+def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(database.get_db), response: Response = None):
     user = db.query(models.User).filter(models.User.email == form_data.username).first()
     if not user or not verify_password(form_data.password, user.hashed_password):
         raise HTTPException(status_code=401, detail="Incorrect email or password")
-    
     token_data = {
         "sub": user.email,
         "user_id": user.id,
         "user_type_id": user.user_type_id
     }
     access_token = create_access_token(data=token_data)
-    return {"access_token": access_token, "token_type": "bearer", "user": user} 
+    refresh_token = create_refresh_token(data=token_data)
+    if response:
+        response.set_cookie(
+            key="refresh_token",
+            value=refresh_token,
+            httponly=True,
+            secure=True,
+            samesite="strict",
+            max_age=REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60
+        )
+    return {"access_token": access_token, "token_type": "bearer", "user": user}
+
+@router.post("/refresh")
+def refresh_token(request: Request, response: Response, refresh_token: str = Cookie(None)):
+    if not refresh_token:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="No refresh token provided")
+    try:
+        payload = jwt.decode(refresh_token, SECRET_KEY, algorithms=[ALGORITHM])
+        if payload.get("type") != "refresh":
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token type")
+        email = payload.get("sub")
+        user_id = payload.get("user_id")
+        user_type_id = payload.get("user_type_id")
+        if not email or not user_id:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token payload")
+    except JWTError:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token")
+    # Issue new access token
+    token_data = {"sub": email, "user_id": user_id, "user_type_id": user_type_id}
+    access_token = create_access_token(data=token_data)
+    return {"access_token": access_token, "user": {"id": user_id, "email": email, "user_type_id": user_type_id}} 

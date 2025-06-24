@@ -26,7 +26,7 @@ def create_initial_user_types():
             types = [
                 models.UserType(id=constants.ADMIN, type="admin"),
                 models.UserType(id=constants.AGENT, type="agent"),
-                models.UserType(id=constants.USER, type="electrician")
+                models.UserType(id=constants.USER, type="user")
             ]
             db.add_all(types)
             db.commit()

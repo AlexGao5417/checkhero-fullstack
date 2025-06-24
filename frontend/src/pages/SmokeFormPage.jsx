@@ -37,9 +37,9 @@ import {
 import { useLocation, useNavigate, useParams, Link } from 'react-router-dom';
 import { generateFormPayload } from '@utils/formInitialState';
 import { ACTION_TYPES, REPORT_TYPES, REPORT_TYPE_IDS } from '@utils/constants';
+import AgentAutocomplete from '@components/Form/AgentAutocomplete';
+import AddressAutocomplete from '@components/Form/AddressAutocomplete';
 
-const { TextArea } = Input;
-const { Option } = Select;
 
 const SmokeFormPage = () => {
   const dispatch = useDispatch();
@@ -62,32 +62,6 @@ const SmokeFormPage = () => {
   const { id } = useParams();
 
   const smokeFormAction = generateFormPayload(REPORT_TYPES.SMOKE);
-
-  const smokeFormInitialData = {
-    propertyDetails: {
-      propertyAddress: "449 Mount Dandenong Road, Kilsyth",
-      dateOfInspection: "2024-02-02"
-    },
-    inspectorDetails: {
-      inspectorName: "support@checkhero.com.au",
-      inspectorSignature: "https://placehold.co/600x400/FF5733/FFFFFF?text=Fault+Image+1"
-    },
-    agentName: "John Doe",
-    smokeAlarmDetails: [
-        {
-            voltage: "120",
-            status: "Pass",
-            location: "Kitchen",
-            expiration: "2024-02-02"
-        },
-    ],
-    imageAppendix: [
-        {
-            image: "https://placehold.co/600x400/FF5733/FFFFFF?text=Fault+Image+1",
-            description: "Kitchen"
-        },
-    ]
-  };
 
   useEffect(() => {
     if (initialFormData) {
@@ -232,44 +206,59 @@ const SmokeFormPage = () => {
     switch (currentStep) {
       case 1:
         return (
-          <StepWrapper title="Property Details">
-            <InputField 
-              label="Property Address" 
-              value={formData.propertyDetails?.propertyAddress || ''} 
-              onChange={(e) => dispatch(updateField(smokeFormAction({ section: 'propertyDetails', field: 'propertyAddress', value: e.target.value })))} 
-            />
-            <InputField 
-              label="Date of Inspection" 
-              type="date" 
-              value={formData.propertyDetails?.dateOfInspection || ''} 
-              onChange={(e) => dispatch(updateField(smokeFormAction({ section: 'propertyDetails', field: 'dateOfInspection', value: e.target.value })))} 
-            />
-          </StepWrapper>
-        );
-      case 2:
-        return (
-          <StepWrapper title="Inspector Details">
-            <InputField 
-              label="Inspector Name"
-              value={formData.inspectorDetails?.inspectorName || ''} 
-              onChange={(e) => dispatch(updateField(smokeFormAction({ section: 'inspectorDetails', field: 'inspectorName', value: e.target.value })))} 
-            />
-             <InputField 
-              label="Agent Name"
-              value={formData.agentName || ''} 
-              onChange={(e) => dispatch(updateDirectField(smokeFormAction({ field: 'agentName', value: e.target.value })))} 
-            />
-            <div>
+          <StepWrapper title="Property & Inspector Details">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
+              <div>
+                <label className="block text-gray-700 text-base font-semibold mb-2">Property Address</label>
+                <AddressAutocomplete
+                  value={formData.propertyAddress}
+                  onChange={({ value, id }) => {
+                    dispatch(updateDirectField(smokeFormAction({ field: 'propertyAddress', value })));
+                    dispatch(updateDirectField(smokeFormAction({ field: 'address_id', value: id })));
+                  }}
+                  style={{ height: '48px' }}                
+                />
+              </div>
+              <div>
+                <label className="block text-gray-700 text-base font-semibold mb-2">Agent Name</label>
+                <AgentAutocomplete
+                  value={formData.agentName}
+                  onChange={({ value, id }) => {
+                    dispatch(updateDirectField(smokeFormAction({ field: 'agentName', value })));
+                    dispatch(updateDirectField(smokeFormAction({ field: 'agent_id', value: id })));
+                  }}
+                  style={{ height: '48px' }}
+                />
+              </div>
+              <div>
+                <InputField
+                  label="Inspector Name"
+                  value={formData.inspectorName || formData.inspectorDetails?.inspectorName || ''}
+                  onChange={e => dispatch(updateDirectField(smokeFormAction({ field: 'inspectorName', value: e.target.value })))}
+                  className="mb-0"
+                />
+              </div>
+              <div>
+                <InputField
+                  label="Inspection Date"
+                  type="date"
+                  value={formData.inspectionDate || formData.dateOfInspection || ''}
+                  onChange={e => dispatch(updateDirectField(smokeFormAction({ field: 'inspectionDate', value: e.target.value })))}
+                  className="mb-0"
+                />
+              </div>
+            </div>
+            <div className="mt-6">
               <label className="block text-sm font-medium text-gray-700 mb-2">Inspector Signature</label>
               <ImageDropzone
-                value={formData.inspectorDetails?.inspectorSignature ? [formData.inspectorDetails.inspectorSignature] : []}
-                onChange={(urls) => dispatch(updateField(smokeFormAction({ section: 'inspectorDetails', field: 'inspectorSignature', value: urls[0] || '' })))}
+                value={formData.inspectorSignature ? [formData.inspectorSignature] : (formData.inspectorDetails?.inspectorSignature ? [formData.inspectorDetails.inspectorSignature] : [])}
+                onChange={urls => dispatch(updateDirectField(smokeFormAction({ field: 'inspectorSignature', value: urls[0] || '' })))}
                 maxCount={1}
               />
             </div>
           </StepWrapper>
         );
-      case 3:
+      case 2:
         return (
           <StepWrapper title="Smoke Alarm Details">
             {formData.smokeAlarmDetails?.map((alarm, index) => (
@@ -315,7 +304,7 @@ const SmokeFormPage = () => {
             </button>
           </StepWrapper>
         );
-      case 4:
+      case 3:
         return (
           <StepWrapper title="Image Appendix">
             <div className="mt-6">
@@ -333,7 +322,7 @@ const SmokeFormPage = () => {
   };
 
   return (
-    <div className="max-w-4xl mx-auto p-4">
+    <div className="max-w-[75%] mx-auto p-4">
       <div className="bg-white rounded-lg shadow-lg p-8">
         <h1 className="text-3xl font-bold mb-6 text-center text-gray-800">Smoke Alarm Check Report</h1>
         <div className="mb-6">

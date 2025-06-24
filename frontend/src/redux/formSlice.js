@@ -1,25 +1,139 @@
 import { createSlice } from '@reduxjs/toolkit';
-import { initialFormData } from '../utils/formInitialState';
-import { REPORT_TYPES } from '../utils/constants';
+import { REPORT_TYPES } from '@utils/constants';
+
+// Electrical and Smoke form initial data (imported)
+const initialFormData = {
+  agentName: '',
+  agent_id: null,
+  propertyAddress: '',
+  address_id: null,
+  reportDate: '',
+  electricalSafetyCheck: false,
+  smokeSafetyCheck: false,
+  installationExtent: {
+      'Main Switchboard': false,
+      'Other living areas': false,
+      'Main earthing system': false,
+      'Laundry': false,
+      'Kitchen': false,
+      'Garage': false,
+      'Bathroom (main)': false,
+      'Solar/battery system': false,
+      'Other bathrooms/ensuites': false,
+      'Installation - Electric water heater': false,
+      'Bedroom (main)': false,
+      'Installation - Dishwasher': false,
+      'Other bedrooms': false,
+      'Installation - Electric room/space heaters': false,
+      'Living room': false,
+      'Installation - Swimming pool equipment': false,
+  },
+  visualInspection: {
+      'Visual - Consumers mains': false,
+      'Visual - Space heaters': false,
+      'Visual - Switchboards': false,
+      'Visual - Cooking equipment': false,
+      'Visual - Exposed earth electrode': false,
+      'Visual - Dishwasher': false,
+      'Visual - Metallic water pipe bond': false,
+      'Visual - Exhaust fans': false,
+      'Visual - RCDs (Safety switches)': false,
+      'Visual - Celling fans': false,
+      'Visual - Circuit protection (circuit breakers/fuses)': false,
+      'Visual - Washing machinedryer/': false,
+      'Visual - Socket-outlets': false,
+      'Visual - Installation wiring': false,
+      'Visual - Light fittings': false,
+      'Visual - Solar and other renewable systems': false,
+      'Visual - Electric water heater': false,
+      'Visual - Swimming pool equipment': false,
+      'Visual - Air conditioners': false,
+      'Visual - Vehicle chargers': false,
+  },
+  polarityTesting: {
+      'Polarity - Consumers mains': false,
+      'Polarity - Electric water heater': false,
+      'Polarity - Circuit protection (circuit breakers/fuses)': false,
+      'Polarity - Air conditioners': false,
+      'Polarity - RCDs (Safety switches)': false,
+      'Polarity - Cooking equipment': false,
+      'Polarity - Dishwasher': false,
+      'Polarity - Circuit protection (circuit breakers/fuses) (D2)': false,
+      'Polarity - Solar and other renewable systems': false,
+      'Polarity - Socket-outlets': false,
+      'Polarity - Swimming pool equipment': false,
+      'Polarity - Vehicle chargers': false,
+  },
+  earthContinuityTesting: {
+      'Earth - Mains earth conductor': false,
+      'Earth - Electric water heater': false,
+      'Earth - Metallic water pipe bond': false,
+      'Earth - Air conditioners': false,
+      'Earth - Socket-outlets': false,
+      'Earth - Cooking equipment': false,
+      'Earth - Light fittings': false,
+      'Earth - Dishwasher': false,
+      'Earth - Exhaust fans': false,
+      'Earth - Solar and other renewable systems': false,
+      'Earth - Celling fans': false,
+      'Earth - Swimming pool equipment': false,
+      'Earth - Vehicle chargers': false,
+  },
+  rcdTestingPassed: false,
+  smokeAlarmsWorking: false,
+  nextSmokeAlarmCheckDate: '',
+  smokeAlarmDetails: [
+    {
+        voltage: "120",
+        status: "Pass",
+        location: "Kitchen",
+        expiration: "2024-02-02"
+    },
+    {
+        voltage: "120",
+        status: "Pass",
+        location: "Kitchen",
+        expiration: "2024-02-02"
+    }
+],
+  observation: '',
+  recommendation: '',
+  imageAppendix: [
+    {
+        image: "https://placehold.co/600x400/FF5733/FFFFFF?text=Fault+Image+1",
+        description: "Kitchen"
+    },
+    {
+        image: "https://placehold.co/600x400/FF5733/FFFFFF?text=Fault+Image+1",
+        description: "Kitchen"
+    }
+],
+  electricalSafetyCheckCompletedBy: '',
+  licenceNumber: '',
+  inspectionDate: '',
+  nextInspectionDueDate: '',
+  signatureDate: '',
+};
 
 // Gas form initial data
 const gasFormInitialData = {
-  propertyDetails: {
-    propertyAddress: "",
-    dateOfInspection: ""
-  },
+  agentName: "",
+  agent_id: null,
+  propertyAddress: "449 Mount Dandenong Road, Kilsyth",
+  address_id: null,
+  dateOfInspection: "2024-02-02",
   checksConducted: {
-    gasSafetyCheckStatus: "Pass"
+    gasSafetyCheckStatus: "Fail"
   },
-  contactDetails: {
-    email: "",
-    phone: ""
+  inspectorDetails: {
+    inspectorName: "",
+    inspectorSignature: ""
   },
   faultsRemedialActions: [
     {
       observation: "",
       recommendation: "",
-      image: ""
+      image: "https://placehold.co/600x400/FF5733/FFFFFF?text=Fault+Image+1"
     }
   ],
   gasSafetyReportDetails: {
@@ -33,7 +147,7 @@ const gasFormInitialData = {
     clientContactNo: "",
     streetAddress: "",
     suburb: "",
-    postcode: ""
+    postcode: "3137"
   },
   gasInstallation: {
     lpGasCylindersCorrectlyInstalled: "Yes",
@@ -65,15 +179,15 @@ const gasFormInitialData = {
 };
 
 const smokeFormInitialData = {
-  propertyDetails: {
-    propertyAddress: "449 Mount Dandenong Road, Kilsyth",
-    dateOfInspection: "2024-02-02"
-  },
+  propertyAddress: "449 Mount Dandenong Road, Kilsyth",
+  address_id: null,
+  dateOfInspection: "2024-02-02",
   inspectorDetails: {
     inspectorName: "support@checkhero.com.au",
     inspectorSignature: "https://placehold.co/600x400/FF5733/FFFFFF?text=Fault+Image+1"
   },
   agentName: "John Doe",
+  agent_id: null,
   smokeAlarmDetails: [
       {
           voltage: "120",

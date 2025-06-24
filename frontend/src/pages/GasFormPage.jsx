@@ -38,6 +38,8 @@ import {
 import { useLocation, useNavigate, useParams, Link } from 'react-router-dom';
 import { generateFormPayload } from '@utils/formInitialState';
 import { ACTION_TYPES, REPORT_TYPES, REPORT_TYPE_IDS } from '@utils/constants';
+import AgentAutocomplete from '@components/Form/AgentAutocomplete';
+import AddressAutocomplete from '@components/Form/AddressAutocomplete';
 
 const { TextArea } = Input;
 const { Option } = Select;
@@ -63,87 +65,6 @@ const GasFormPage = () => {
   const { id } = useParams();
 
   const gasFormAction = generateFormPayload(REPORT_TYPES.GAS);
-
-  // Initial form data from gas-form.json
-  const gasFormInitialData = {
-    propertyDetails: {
-      propertyAddress: "449 Mount Dandenong Road, Kilsyth",
-      dateOfInspection: "2024-02-02"
-    },
-    checksConducted: {
-      gasSafetyCheckStatus: "Pass"
-    },
-    contactDetails: {
-      email: "support@checkhero.com.au",
-      phone: "03 7067 8237"
-    },
-    faultsRemedialActions: [
-      {
-        observation: "",
-        recommendation: "",
-        image: "https://placehold.co/600x400/FF5733/FFFFFF?text=Fault+Image+1"
-      }
-    ],
-    gasSafetyReportDetails: {
-      reportDate: "2024-02-02",
-      vbaRecordNumber: "41234",
-      licensedPersonEmail: "cg.pool110@gmail.com",
-      licensedPersonLicenseNo: "null",
-      checkCompletedBy: "Chris Pool",
-      checkCompletedByLicenseNo: "43325",
-      clientName: "Rental Provider",
-      clientContactNo: "null",
-      streetAddress: "449 Mount Dandenong Road",
-      suburb: "Kilsyth",
-      postcode: "3137"
-    },
-    gasInstallation: {
-      lpGasCylindersCorrectlyInstalled: "Yes",
-      leakageTestResult: "Pass",
-      comments: "null"
-    },
-    gasAppliances: [
-      {
-        applianceName: "Chef Freestanding Oven/Cooktop/grill",
-        applianceImage: "https://placehold.co/600x400/33FF57/FFFFFF?text=Appliance+Image+1",
-        isolationValvePresent: "Yes",
-        electricallySafe: "Yes",
-        adequateVentilation: "Yes",
-        adequateClearances: "Yes",
-        serviceInAccordanceWithAS4575: "Yes",
-        comments: ""
-      },
-      {
-        applianceName: "Rinnai 556FDT space Heater",
-        applianceImage: "https://placehold.co/600x400/5733FF/FFFFFF?text=Appliance+Image+2",
-        isolationValvePresent: "Yes",
-        electricallySafe: "Yes",
-        adequateVentilation: "Yes",
-        adequateClearances: "Yes",
-        serviceInAccordanceWithAS4575: "Yes",
-        comments: "CO Test ok. 0.00 ppm"
-      }
-    ],
-    applianceServicingCompliance: {
-      servicedInAccordanceWithAS4575: true,
-      recordCreatedAndProvidedToRentalProvider: true
-    },
-    declaration: {
-      applianceStatus: "Compliant",
-      nextGasSafetyCheckDue: "2026-02-02",
-      gasfitterSignatureImage: "https://placehold.co/200x80/000000/FFFFFF?text=Gasfitter+Signature"
-    },
-    annexPhotos: [
-      {
-        applianceName: "Chef Freestanding Oven/Cooktop/grill",
-        photoUrl: "https://placehold.co/600x400/FF0000/FFFFFF?text=Oven/Cooktop+Photo"
-      },
-      {
-        applianceName: "Rinnai 556FDT space Heater",
-        photoUrl: "https://placehold.co/600x400/0000FF/FFFFFF?text=Space+Heater+Photo"
-      }
-    ]
-  };
 
   useEffect(() => {
     if (initialFormData) {
@@ -175,7 +96,7 @@ const GasFormPage = () => {
     }
   }, [id, dispatch, gasFormAction, user]);
 
-  const totalSteps = 8;
+  const totalSteps = 7;
 
   
   const handleNestedInputChange = (section, index, field) => (e) => {
@@ -321,18 +242,58 @@ const GasFormPage = () => {
     switch (currentStep) {
       case 1:
         return (
-          <StepWrapper title="Property Details">
-            <InputField 
-              label="Property Address" 
-              value={formData.propertyDetails?.propertyAddress || ''} 
-              onChange={(e) => dispatch(updateField(gasFormAction({ section: 'propertyDetails', field: 'propertyAddress', value: e.target.value })))} 
-            />
-            <InputField 
-              label="Date of Inspection" 
-              type="date" 
-              value={formData.propertyDetails?.dateOfInspection || ''} 
-              onChange={(e) => dispatch(updateField(gasFormAction({ section: 'propertyDetails', field: 'dateOfInspection', value: e.target.value })))} 
-            />
+          <StepWrapper title="Property & Inspector Details">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
+              <div>
+                <label className="block text-gray-700 text-base font-semibold mb-2">Property Address</label>
+                <AddressAutocomplete
+                  value={formData.propertyAddress}
+                  onChange={({ value, id }) => {
+                    dispatch(updateDirectField(gasFormAction({ field: 'propertyAddress', value })));
+                    dispatch(updateDirectField(gasFormAction({ field: 'address_id', value: id })));
+                  }}
+                  style={{ height: '48px' }}
+                  className="shadow-sm appearance-none border rounded-lg w-full py-3 px-4 text-gray-800 leading-tight focus:outline-none focus:ring-3 transition-all duration-200 text-lg border-gray-300 focus:ring-blue-400 focus:border-blue-400"
+                />
+              </div>
+              <div>
+                <label className="block text-gray-700 text-base font-semibold mb-2">Agent Name</label>
+                <AgentAutocomplete
+                  value={formData.agentName}
+                  onChange={({ value, id }) => {
+                    dispatch(updateDirectField(gasFormAction({ field: 'agentName', value })));
+                    dispatch(updateDirectField(gasFormAction({ field: 'agent_id', value: id })));
+                  }}
+                  style={{ height: '48px' }}
+                  className="shadow-sm appearance-none border rounded-lg w-full py-3 px-4 text-gray-800 leading-tight focus:outline-none focus:ring-3 transition-all duration-200 text-lg border-gray-300 focus:ring-blue-400 focus:border-blue-400"
+                />
+              </div>
+              <div>
+                <InputField
+                  label="Inspector Name"
+                  value={formData.inspectorName || formData.inspectorDetails?.inspectorName || ''}
+                  onChange={e => dispatch(updateDirectField(gasFormAction({ field: 'inspectorName', value: e.target.value })))}
+                  className="mb-0"
+                />
+              </div>
+              <div>
+                <InputField
+                  label="Inspection Date"
+                  type="date"
+                  value={formData.inspectionDate || formData.dateOfInspection || ''}
+                  onChange={e => dispatch(updateDirectField(gasFormAction({ field: 'inspectionDate', value: e.target.value })))}
+                  className="mb-0"
+                />
+              </div>
+            </div>
+            <div className="mt-6">
+              <label className="block text-sm font-medium text-gray-700 mb-2">Inspector Signature</label>
+              <ImageDropzone
+                value={formData.inspectorSignature ? [formData.inspectorSignature] : (formData.inspectorDetails?.inspectorSignature ? [formData.inspectorDetails.inspectorSignature] : [])}
+                onChange={urls => dispatch(updateDirectField(gasFormAction({ field: 'inspectorSignature', value: urls[0] || '' })))}
+                maxCount={1}
+              />
+            </div>
           </StepWrapper>
         );
       case 2:
@@ -352,22 +313,6 @@ const GasFormPage = () => {
           </StepWrapper>
         );
       case 3:
-        return (
-          <StepWrapper title="Contact Details">
-            <InputField 
-              label="Email" 
-              type="email"
-              value={formData.contactDetails?.email || ''} 
-              onChange={(e) => dispatch(updateField(gasFormAction({ section: 'contactDetails', field: 'email', value: e.target.value })))} 
-            />
-            <InputField 
-              label="Phone" 
-              value={formData.contactDetails?.phone || ''} 
-              onChange={(e) => dispatch(updateField(gasFormAction({ section: 'contactDetails', field: 'phone', value: e.target.value })))} 
-            />
-          </StepWrapper>
-        );
-      case 4:
         return (
           <StepWrapper title="Gas Safety Report Details">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -431,7 +376,7 @@ const GasFormPage = () => {
             </div>
           </StepWrapper>
         );
-      case 5:
+      case 4:
         return (
           <StepWrapper title="Gas Installation">
             <div className="mb-4">
@@ -464,7 +409,7 @@ const GasFormPage = () => {
             />
           </StepWrapper>
         );
-      case 6:
+      case 5:
         return (
           <StepWrapper title="Gas Appliances">
             {formData.gasAppliances?.map((appliance, index) => (
@@ -534,7 +479,7 @@ const GasFormPage = () => {
             </button>
           </StepWrapper>
         );
-      case 7:
+      case 6:
         return (
           <StepWrapper title="Appliance Servicing Compliance & Declaration">
             <div className="mb-6">
@@ -585,7 +530,7 @@ const GasFormPage = () => {
             </div>
           </StepWrapper>
         );
-      case 8:
+      case 7:
         return (
           <StepWrapper title="Faults/Remedial Actions & Annex Photos">
             <div className="mb-6">
@@ -642,7 +587,7 @@ const GasFormPage = () => {
   };
 
   return (
-    <div className="max-w-4xl mx-auto p-4">
+    <div className="max-w-[75%] mx-auto p-4">
       <div className="bg-white rounded-lg shadow-lg p-8">
         <h1 className="text-3xl font-bold mb-6 text-center text-gray-800">Gas Safety Check Report</h1>
         <div className="mb-6">

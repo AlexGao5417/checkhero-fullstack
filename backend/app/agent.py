@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Body
+from fastapi import APIRouter, Depends, HTTPException, status, Body, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from . import models, database, auth, constants
@@ -13,6 +13,12 @@ router = APIRouter(
 )
 
 # Pydantic Schemas
+class AddressOut(BaseModel):
+    address_id: int
+    full_address: str
+    class Config:
+        orm_mode = True
+
 class AddressAgentCreate(BaseModel):
     address_id: int
     agent_id: int
@@ -50,6 +56,18 @@ def get_agent_balance(db: Session, agent_id: int):
         .scalar() or 0
         
     return float(total_rewards) - float(total_withdrawn)
+
+@router.get("/addresses", response_model=List[AddressOut])
+def search_addresses(search: str = Query(None, min_length=2), db: Session = Depends(database.get_db)):
+    if not search:
+        return []
+    
+    addresses = db.query(models.Address).filter(models.Address.address.ilike(f"%{search}%")).limit(10).all()
+    
+    return [
+        AddressOut(address_id=addr.address_id, full_address=addr.address)
+        for addr in addresses
+    ]
 
 @router.post("/address", status_code=status.HTTP_201_CREATED)
 def add_address_to_agent(request: AddressAgentCreate, db: Session = Depends(database.get_db), current_user: models.User = Depends(auth.get_current_user)):

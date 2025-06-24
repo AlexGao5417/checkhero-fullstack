@@ -9,7 +9,7 @@ const { Option } = Select;
 const userTypes = [
   { value: USER_ROLES.ADMIN, label: 'Admin' },
   { value: USER_ROLES.AGENT, label: 'Agent' },
-  { value: USER_ROLES.ELECTRICIAN, label: 'Electrician' },
+  { value: USER_ROLES.USER, label: 'User' },
 ];
 
 const PAGE_SIZE = 5;
@@ -129,7 +129,6 @@ const UserManagement = () => {
   const handleOk = async () => {
     try {
       const values = await form.validateFields();
-      const token = localStorage.getItem('token');
 
       if (isEdit && editingUser) {
         // Use the admin endpoint for edits
@@ -193,7 +192,7 @@ const UserManagement = () => {
             if (record.user_type_id !== USER_ROLES.AGENT || !record.is_affiliate) {
                 return 'N/A';
             }
-            return balance !== null ? `$${balance.toFixed(2)}` : 'N/A';
+            return record.is_affiliate ? `$${(balance ?? 0)}` : 'N/A';
         },
     },
     {
@@ -292,6 +291,9 @@ const UserManagement = () => {
             <Form.Item name="phone" label="Phone">
                 <Input />
             </Form.Item>
+            {!isEdit && <Form.Item name="password" label="Password" rules={[{ required: true, message: 'Please input the password!' }]}>
+                <Input.Password />
+            </Form.Item>}
             <Form.Item name="user_type_id" label="User Type" rules={[{ required: true, message: 'Please select a user type!' }]}>
                 <Select placeholder="Select a user type">
                     {userTypes.map(type => (

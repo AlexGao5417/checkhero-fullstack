@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
-import StepWrapper from '../components/Form/StepWrapper';
+import StepWrapper from '@components/Form/StepWrapper';
 import CheckboxField from '../components/Form/CheckboxField';
 import TextAreaField from '../components/Form/TextAreaField';
-import InputField from '../components/Form/InputField';
+import InputField from '@components/Form/InputField';
 import {
   setStep,
   updateField,
@@ -14,12 +14,15 @@ import {
   resetForm,
   setFormData,
 } from '../redux/formSlice';
-import ImageAppendixList from '../components/Form/ImageAppendixList';
+import ImageAppendixList from '@components/Form/ImageAppendixList';
 import axios from '@utils/axios';
 import { Alert, Spin, Modal, Input, Button, Form, Row, Col, Typography, Card, Divider, Anchor, Checkbox, DatePicker, notification, message, InputNumber } from 'antd';
 import { useLocation, useNavigate, useParams, Link } from 'react-router-dom';
-import { generateFormPayload } from '../utils/formInitialState';
-import { ACTION_TYPES, REPORT_TYPES, REPORT_TYPE_IDS } from '../utils/constants';
+import { generateFormPayload } from '@utils/formInitialState';
+import { ACTION_TYPES, REPORT_TYPES, REPORT_TYPE_IDS } from '@utils/constants';
+import AgentAutocomplete from '@components/Form/AgentAutocomplete';
+import AddressAutocomplete from '@components/Form/AddressAutocomplete';
+import ImageDropzone from '@components/Form/ImageDropzone';
 
 const { TextArea } = Input;
 
@@ -234,9 +237,56 @@ const FormPage = () => {
     switch (currentStep) {
       case 1:
         return (
-          <StepWrapper title="Report and Property Details">
-            <InputField label="Property Address" value={formData.propertyAddress} onChange={(e)=>dispatch(updateDirectField(formAction({ field: 'propertyAddress', value: e.target.value })))} />
-            <InputField label="Inspection Date" type="date" value={formData.reportDate} onChange={(e)=>dispatch(updateDirectField(formAction({ field: 'reportDate', value: e.target.value })))} />
+          <StepWrapper title="Property & Inspector Details">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
+              <div>
+                <label className="block text-gray-700 text-base font-semibold mb-2">Property Address</label>
+                <AddressAutocomplete
+                  value={formData.propertyAddress}
+                  onChange={({ value, id }) => {
+                    dispatch(updateDirectField(formAction({ field: 'propertyAddress', value })));
+                    dispatch(updateDirectField(formAction({ field: 'address_id', value: id })));
+                  }}
+                  style={{ height: '48px' }}
+                />
+              </div>
+              <div>
+                <label className="block text-gray-700 text-base font-semibold mb-2">Agent Name</label>
+                <AgentAutocomplete
+                  value={formData.agentName}
+                  onChange={({ value, id }) => {
+                    dispatch(updateDirectField(formAction({ field: 'agentName', value })));
+                    dispatch(updateDirectField(formAction({ field: 'agent_id', value: id })));
+                  }}
+                  style={{ height: '48px' }}
+                />
+              </div>
+              <div>
+                <InputField
+                  label="Inspector Name"
+                  value={formData.inspectorName || ''}
+                  onChange={e => dispatch(updateDirectField(formAction({ field: 'inspectorName', value: e.target.value })))}
+                  className="mb-0"
+                />
+              </div>
+              <div>
+                <InputField
+                  label="Inspection Date"
+                  type="date"
+                  value={formData.inspectionDate || ''}
+                  onChange={e => dispatch(updateDirectField(formAction({ field: 'inspectionDate', value: e.target.value })))}
+                  className="mb-0"
+                />
+              </div>
+            </div>
+            <div className="mt-6">
+              <label className="block text-sm font-medium text-gray-700 mb-2">Inspector Signature</label>
+              <ImageDropzone
+                value={formData.inspectorSignature ? [formData.inspectorSignature] : []}
+                onChange={urls => dispatch(updateDirectField(formAction({ field: 'inspectorSignature', value: urls[0] || '' })))}
+                maxCount={1}
+              />
+            </div>
           </StepWrapper>
         );
       case 2:

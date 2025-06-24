@@ -20,7 +20,7 @@ import axios from '@utils/axios';
 import { USER_ROLES, REPORT_STATUS, REPORT_TYPES, REPORT_TYPE_IDS } from "@utils/constants";
 
 // Map user_type_id to type string for demo
-const userTypeMap = { 1: "admin", 2: "agent", 3: "electrician" };
+const userTypeMap = { 1: "admin", 2: "agent", 3: "user" };
 
 const statusColors = {
   [REPORT_STATUS.DRAFT]: "default",
