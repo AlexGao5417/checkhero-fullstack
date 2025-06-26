@@ -8,10 +8,11 @@ from typing import List, Optional
 import json
 import os
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from dotenv import load_dotenv
 from botocore.client import Config
 from app import constants
+from decimal import Decimal
 
 
 load_dotenv()
@@ -48,6 +49,7 @@ def upload_to_s3(file_path, object_name=None):
 class ReportOut(BaseModel):
     id: int
     address: str
+    address_id: int
     publisher: str
     publisher_id: int
     report_type_id: int
@@ -61,7 +63,8 @@ class ReportOut(BaseModel):
     pdf_url: Optional[str]
     reward: Optional[float] = None
     agent_id: Optional[int] = None
-    agent_is_affiliate: Optional[bool] = None
+    agent: Optional[str] = None
+    is_affiliate: Optional[bool] = None
     class Config:
         orm_mode = True
 
@@ -85,12 +88,12 @@ def get_reports(
 ):
     reports = []
     if current_user.user_type_id == 1:  # Admin
-        reports = db.query(models.Report).options(joinedload(models.Report.publisher), joinedload(models.Report.reviewer)).all()
+        reports = db.query(models.Report).options(joinedload(models.Report.publisher), joinedload(models.Report.reviewer), joinedload(models.Report.address)).all()
     elif current_user.user_type_id == 3:  # Agent
         # An agent sees reports they published
-        reports = db.query(models.Report).filter(models.Report.publisher_id == current_user.id).options(joinedload(models.Report.publisher), joinedload(models.Report.reviewer)).all()
+        reports = db.query(models.Report).filter(models.Report.publisher_id == current_user.id).options(joinedload(models.Report.publisher), joinedload(models.Report.reviewer), joinedload(models.Report.address)).all()
     elif current_user.user_type_id == 2: # User (assuming they can also be publishers)
-        reports = db.query(models.Report).filter(models.Report.publisher_id == current_user.id).options(joinedload(models.Report.publisher), joinedload(models.Report.reviewer)).all()
+        reports = db.query(models.Report).filter(models.Report.publisher_id == current_user.id).options(joinedload(models.Report.publisher), joinedload(models.Report.reviewer), joinedload(models.Report.address)).all()
     else:
         reports = []
     
@@ -105,10 +108,14 @@ def get_reports(
         
         # Pass the date strings directly
         review_date_str = r.review_date.isoformat() if r.review_date else None
-        
+        agent = db.query(models.User).filter(models.User.id == r.agent_id).first()
+        is_affiliate = agent.is_affiliate if agent else None
         result.append(ReportOut(
             id=r.id,
-            address=r.address,
+            address=r.address.address,
+            address_id=r.address.id,
+            agent_id=r.agent.id if r.agent else None,
+            agent=r.agent.username if r.agent else None,
             publisher=r.publisher.username if r.publisher else 'N/A',
             publisher_id=r.publisher_id,
             report_type_id=r.report_type_id,
@@ -120,7 +127,8 @@ def get_reports(
             reviewer_id=r.reviewer_id,
             form_data=form_data,
             pdf_url=r.pdf_url,
-            reward=r.reward
+            reward=r.reward,
+            is_affiliate=is_affiliate
         ))
 
     return result
@@ -146,17 +154,18 @@ def get_report(report_id: int, db: Session = Depends(database.get_db), current_u
     form_data = json.loads(db_report.form_data) if db_report.form_data else None
     
     agent_is_affiliate = None
-    if db_report.publisher and db_report.publisher.user_type_id == 2: # AGENT
-        agent_is_affiliate = db_report.publisher.is_affiliate
+    if db_report.agent and db_report.agent.user_type_id == 2: # AGENT
+        agent_is_affiliate = db_report.agent.is_affiliate
 
     return ReportOut(
         id=db_report.id,
-        address=db_report.address,
+        address=db_report.address.address,
+        address_id=db_report.address.id,
         publisher=db_report.publisher.username if db_report.publisher else 'N/A',
         publisher_id=db_report.publisher_id,
         report_type_id=db_report.report_type_id,
-        created_date=db_report.created_date.isoformat(),
-        review_date=db_report.review_date.isoformat() if db_report.review_date else None,
+        created_date=db_report.created_date.isoformat() if isinstance(db_report.created_date, datetime) else db_report.created_date,
+        review_date=db_report.review_date.isoformat() if isinstance(db_report.review_date, datetime) else db_report.review_date,
         status=db_report.status,
         comment=db_report.comment,
         reviewer=db_report.reviewer.username if db_report.reviewer else 'N/A',
@@ -165,7 +174,7 @@ def get_report(report_id: int, db: Session = Depends(database.get_db), current_u
         pdf_url=db_report.pdf_url,
         reward=db_report.reward,
         agent_id=db_report.publisher_id if db_report.publisher.user_type_id == 2 else None,
-        agent_is_affiliate=agent_is_affiliate
+        is_affiliate=agent_is_affiliate
     )
 
 @router.get("/presigned-url/")
@@ -208,7 +217,7 @@ def create_report(report_data: ReportCreate, db: Session = Depends(database.get_
             db.add(address_obj)
             db.commit()
             db.refresh(address_obj)
-        address_id = address_obj.address_id
+        address_id = address_obj.id
         form_data["address_id"] = address_id
 
     # If agent_id is present and address_id is missing (i.e., new address), link agent and address
@@ -230,12 +239,12 @@ def create_report(report_data: ReportCreate, db: Session = Depends(database.get_
     new_report = models.Report(
         form_data=json.dumps(form_data),
         publisher_id=current_user.id,
-        address=address,
         address_id=address_id,
         report_type_id=report_data.report_type_id,
         status="draft",
         pdf_url=pdf_url,
-        created_date=datetime.now(datetime.UTC)
+        agent_id=agent_id,
+        created_date=datetime.now(timezone.utc)
     )
     db.add(new_report)
     db.commit()
@@ -283,7 +292,7 @@ def approve_report(report_id: int, request_data: ApproveReportRequest, db: Sessi
         db_report.comment = request_data.comment
 
     # Handle reward for affiliated agents
-    agent = db_report.publisher
+    agent = db_report.agent
     if agent and agent.user_type_id == 2 and agent.is_affiliate: # AGENT
         if request_data.reward is None or request_data.reward <= 0:
             raise HTTPException(status_code=400, detail="A positive reward is required for an affiliated agent.")
@@ -291,12 +300,12 @@ def approve_report(report_id: int, request_data: ApproveReportRequest, db: Sessi
         db_report.reward = request_data.reward
         
         # Update agent balance
-        agent_balance = db.query(models.AgentBalance).filter(models.AgentBalance.user_id == agent.id).first()
+        agent_balance = db.query(models.AgentBalance).filter(models.AgentBalance.agent_id == agent.id).first()
         if agent_balance:
-            agent_balance.balance += request_data.reward
+            agent_balance.balance += Decimal(str(request_data.reward))
         else:
             # Create a balance record if it doesn't exist
-            new_balance = models.AgentBalance(user_id=agent.id, balance=request_data.reward)
+            new_balance = models.AgentBalance(agent_id=agent.id, balance=request_data.reward)
             db.add(new_balance)
 
     db.commit()

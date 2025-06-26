@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Body, Query
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func
 from . import models, database, auth, constants
 from pydantic import BaseModel
@@ -8,8 +8,7 @@ from datetime import datetime
 from app.constants import AGENT, DRAFT, PENDING, DENIED, APPROVED
 
 router = APIRouter(
-    prefix="/agent",
-    tags=["agent"],
+    dependencies=[Depends(auth.get_current_user)]
 )
 
 # Pydantic Schemas
@@ -45,6 +44,13 @@ class WithdrawRewardOut(BaseModel):
     class Config:
         orm_mode = True
 
+class AgentRewardOut(BaseModel):
+    agent_id: int
+    agent_name: str
+    balance: float
+    class Config:
+        orm_mode = True
+
 # Helper function to calculate balance
 def get_agent_balance(db: Session, agent_id: int):
     total_rewards = db.query(func.sum(models.Report.reward)) \
@@ -65,7 +71,7 @@ def search_addresses(search: str = Query(None, min_length=2), db: Session = Depe
     addresses = db.query(models.Address).filter(models.Address.address.ilike(f"%{search}%")).limit(10).all()
     
     return [
-        AddressOut(address_id=addr.address_id, full_address=addr.address)
+        AddressOut(address_id=addr.id, full_address=addr.address)
         for addr in addresses
     ]
 
@@ -80,7 +86,7 @@ def add_address_to_agent(request: AddressAgentCreate, db: Session = Depends(data
     if not agent or agent.user_type_id != constants.AGENT: # Agent user_type_id is 2
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Agent not found")
     
-    address = db.query(models.Address).filter(models.Address.address_id == request.address_id).first()
+    address = db.query(models.Address).filter(models.Address.id == request.address_id).first()
     if not address:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Address not found")
         
@@ -129,13 +135,27 @@ def edit_agent_address(address_agent_id: int, request: AddressAgentUpdate, db: S
     db.refresh(link)
     return link
 
-@router.get("/withdrawals", response_model=List[WithdrawRewardOut])
-def get_withdrawals(db: Session = Depends(database.get_db), current_user: models.User = Depends(auth.get_current_user)):
-    if current_user.user_type_id != AGENT:
-        raise HTTPException(status_code=403, detail="User is not an agent")
-    
-    withdrawals = db.query(models.WithdrawReward).filter(models.WithdrawReward.agent_id == current_user.id).order_by(models.WithdrawReward.submit_datetime.desc()).all()
-    return withdrawals
+@router.get("/withdrawals")
+def get_withdrawals(
+    db: Session = Depends(database.get_db),
+    current_user: models.User = Depends(auth.get_current_user),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(10, ge=1, le=100),
+    agent_name: str = Query(None, min_length=1)
+):
+    query = db.query(models.WithdrawReward)
+    if current_user.user_type_id == AGENT:
+        query = query.filter(models.WithdrawReward.agent_id == current_user.id)
+    elif current_user.user_type_id == constants.ADMIN:
+        if agent_name:
+            query = query.join(models.User, models.WithdrawReward.agent_id == models.User.id)
+            query = query.filter(models.User.username.ilike(f"%{agent_name}%"))
+    else:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    total = query.count()
+    withdrawals = query.order_by(models.WithdrawReward.submit_datetime.desc()) \
+        .offset((page - 1) * page_size).limit(page_size).all()
+    return {"total": total, "results": withdrawals}
 
 @router.post("/withdraw")
 def request_withdrawal(amount: float = Body(..., gt=0), db: Session = Depends(database.get_db), current_user: models.User = Depends(auth.get_current_user)):
@@ -183,3 +203,26 @@ def get_agent_status(db: Session = Depends(database.get_db), current_user: model
         "balance": balance,
         "pending_withdrawal": pending_withdrawal
     }
+
+@router.get("/rewards")
+def get_agent_rewards(
+    db: Session = Depends(database.get_db),
+    current_user: models.User = Depends(auth.get_current_user),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(10, ge=1, le=100),
+    agent_name: str = Query(None, min_length=1)
+):
+    if current_user.user_type_id != constants.ADMIN:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    query = db.query(models.AgentBalance).options(joinedload(models.AgentBalance.agent))
+    if agent_name:
+        query = query.join(models.User, models.AgentBalance.agent_id == models.User.id)
+        query = query.filter(models.User.username.ilike(f"%{agent_name}%"))
+    total = query.count()
+    results = query.order_by(models.AgentBalance.agent_id) \
+        .offset((page - 1) * page_size).limit(page_size).all()
+    rewards = [
+        AgentRewardOut(agent_id=ab.agent_id, agent_name=ab.agent.username if ab.agent else '', balance=ab.balance)
+        for ab in results
+    ]
+    return {"total": total, "results": rewards}

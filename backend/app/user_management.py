@@ -217,24 +217,6 @@ def delete_user(user_id: int, db: Session = Depends(database.get_db), current_us
     db.commit()
     return {"detail": "User deleted"}
 
-@router.get("/withdrawals", response_model=List[WithdrawRewardAdminOut])
-def get_all_withdrawals(db: Session = Depends(database.get_db), current_user: models.User = Depends(auth.get_current_user)):
-    if current_user.user_type_id != constants.ADMIN:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied.")
-    
-    withdrawals = db.query(
-        models.WithdrawReward.id,
-        models.WithdrawReward.amount,
-        models.WithdrawReward.status,
-        models.WithdrawReward.submit_datetime,
-        models.WithdrawReward.review_datetime,
-        models.WithdrawReward.invoice_pdf,
-        models.WithdrawReward.agent_id,
-        models.User.username.label("agent_username")
-    ).join(models.User, models.WithdrawReward.agent_id == models.User.id).order_by(models.WithdrawReward.submit_datetime.desc()).all()
-
-    return withdrawals
-
 @router.put("/{user_id}/affiliate-status")
 def set_affiliate_status(user_id: int, request: SetAffiliateStatusRequest, db: Session = Depends(database.get_db), current_user: models.User = Depends(auth.get_current_user)):
     if current_user.user_type_id != constants.ADMIN:

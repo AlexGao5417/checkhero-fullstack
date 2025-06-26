@@ -36,4 +36,5 @@ export const API_ENDPOINTS = {
   agents: '/users?user_type_id=2',
   addresses: '/agent/addresses',
   reports: '/reports',
+  agentRewards: '/users/agent-rewards',
 }; 

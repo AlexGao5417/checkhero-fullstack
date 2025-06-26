@@ -3,8 +3,7 @@ import { REPORT_TYPES } from '@utils/constants';
 
 // Electrical and Smoke form initial data (imported)
 const initialFormData = {
-  agentName: '',
-  agent_id: null,
+  agentId: null,
   propertyAddress: '',
   address_id: null,
   reportDate: '',
@@ -118,7 +117,7 @@ const initialFormData = {
 // Gas form initial data
 const gasFormInitialData = {
   agentName: "",
-  agent_id: null,
+  agentId: null,
   propertyAddress: "449 Mount Dandenong Road, Kilsyth",
   address_id: null,
   dateOfInspection: "2024-02-02",
@@ -187,7 +186,7 @@ const smokeFormInitialData = {
     inspectorSignature: "https://placehold.co/600x400/FF5733/FFFFFF?text=Fault+Image+1"
   },
   agentName: "John Doe",
-  agent_id: null,
+  agentId: null,
   smokeAlarmDetails: [
       {
           voltage: "120",

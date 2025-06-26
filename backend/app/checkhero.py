@@ -294,7 +294,6 @@ def generate_gas_pdf(data, filename="generated_gas_report.pdf"):
         elements.append(tbl)
     doc.build(elements)
 
-
 def generate_smoke_pdf(data, filename="generated_smoke_report.pdf"):
     doc = SimpleDocTemplate(
         filename,

@@ -18,6 +18,7 @@ import { DownloadOutlined, ExclamationCircleOutlined } from "@ant-design/icons";
 import { useNavigate } from "react-router-dom";
 import axios from '@utils/axios';
 import { USER_ROLES, REPORT_STATUS, REPORT_TYPES, REPORT_TYPE_IDS } from "@utils/constants";
+import moment from 'moment';
 
 // Map user_type_id to type string for demo
 const userTypeMap = { 1: "admin", 2: "agent", 3: "user" };
@@ -101,7 +102,7 @@ const ReportsTable = ({ onEditReport }) => {
 
     if (path) {
       navigate(path, {
-        state: { formData: record.form_data, reportId: record.id },
+        state: { formData: record.form_data, reportId: record.id, isAffiliate: record.is_affiliate },
       });
     } else {
       console.error(`No route found for report type ID: ${record.report_type_id}`);
@@ -149,8 +150,18 @@ const ReportsTable = ({ onEditReport }) => {
       dataIndex: "publisher",
       key: "publisher",
     },
-    { title: "Created Date", dataIndex: "created_date", key: "created_date" },
-    { title: "Review Date", dataIndex: "review_date", key: "review_date" },
+    {
+      title: "Created Date",
+      dataIndex: "created_date",
+      key: "created_date",
+      render: (date) => date ? moment(date).format('MMM D, YYYY, h:mm A') : '',
+    },
+    {
+      title: "Review Date",
+      dataIndex: "review_date",
+      key: "review_date",
+      render: (date) => date ? moment(date).format('MMM D, YYYY, h:mm A') : '',
+    },
     {
       title: "Status",
       dataIndex: "status",
@@ -185,10 +196,16 @@ const ReportsTable = ({ onEditReport }) => {
               Download PDF
             </Button>
           ) : (
-            <Button type="link" onClick={() => handleEdit(record)}>Edit</Button>
-          )}
-          {currentUser.user_type_id === USER_ROLES.ADMIN && (
-            <Button type="link" danger onClick={() => handleDelete(record)}>Delete</Button>
+            <>
+              {currentUser.user_type_id === USER_ROLES.ADMIN ? (
+                <Button type="link" onClick={() => handleEdit(record)}>Review</Button>
+              ) : currentUser.user_type_id === USER_ROLES.USER ? (
+                <Button type="link" onClick={() => handleEdit(record)}>Edit</Button>
+              ) : null}
+              {currentUser.user_type_id === USER_ROLES.ADMIN && (
+                <Button type="link" danger onClick={() => handleDelete(record)}>Delete</Button>
+              )}
+            </>
           )}
         </Space>
       ),

@@ -37,8 +37,8 @@ import {
 } from 'antd';
 import { useLocation, useNavigate, useParams, Link } from 'react-router-dom';
 import { generateFormPayload } from '@utils/formInitialState';
-import { ACTION_TYPES, REPORT_TYPES, REPORT_TYPE_IDS } from '@utils/constants';
-import AgentAutocomplete from '@components/Form/AgentAutocomplete';
+import { USER_ROLES, REPORT_TYPES, REPORT_TYPE_IDS } from '@utils/constants';
+import AgentSelect from '@components/Form/AgentSelect';
 import AddressAutocomplete from '@components/Form/AddressAutocomplete';
 
 const { TextArea } = Input;
@@ -61,8 +61,7 @@ const GasFormPage = () => {
 
   const navigate = useNavigate();
   const location = useLocation();
-  const initialFormData = location.state?.formData;
-  const { id } = useParams();
+  const { reportId, isAffiliate, formData: initialFormData } = location.state;
 
   const gasFormAction = generateFormPayload(REPORT_TYPES.GAS);
 
@@ -75,10 +74,9 @@ const GasFormPage = () => {
 
   useEffect(() => {
     const fetchReportData = async () => {
-      if (id) {
-        setIsSubmitting(true);
+      if (reportId) {
         try {
-          const res = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/reports/${id}`);
+          const res = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/reports/${reportId}`);
           const formData = res.data.form_data;
           dispatch(setFormData(gasFormAction({ formData })));
           setReportData(res.data);
@@ -91,10 +89,10 @@ const GasFormPage = () => {
     };
 
     if (user) {
-      setIsAdmin(user.user_type_id === 1);
+      setIsAdmin(user.user_type_id === user.user_type_id === USER_ROLES.ADMIN);
       fetchReportData();
     }
-  }, [id, dispatch, gasFormAction, user]);
+  }, [reportId, user.id]);
 
   const totalSteps = 7;
 
@@ -163,7 +161,7 @@ const GasFormPage = () => {
   };
 
   const handleApprove = () => {
-    if (reportData?.agent_is_affiliate) {
+    if (isAffiliate) {
         setIsRewardModalVisible(true);
     } else {
         submitApproval();
@@ -173,7 +171,7 @@ const GasFormPage = () => {
   const submitApproval = async (rewardAmount = null) => {
     setIsSubmitting(true);
     try {
-        await axios.put(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/reports/approve/${id}`, {
+        await axios.put(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/reports/approve/${reportId}`, {
             comment: comment,
             reward: rewardAmount
         });
@@ -205,7 +203,7 @@ const GasFormPage = () => {
     setIsSubmitting(true);
     setAlert({ visible: false, type: '', message: '' });
 
-    const reportId = id;
+    const reportId = reportId;
 
     if (reportId) {
       try {
@@ -225,7 +223,7 @@ const GasFormPage = () => {
       const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
       const payload = {
         form_data: formData,
-        address: formData.propertyDetails.propertyAddress,
+        address: formData.propertyAddress,
         report_type_id: REPORT_TYPE_IDS[REPORT_TYPES.GAS],
       };
       const res = await axios.post(`${apiUrl}/reports/create`, payload);
@@ -248,9 +246,9 @@ const GasFormPage = () => {
                 <label className="block text-gray-700 text-base font-semibold mb-2">Property Address</label>
                 <AddressAutocomplete
                   value={formData.propertyAddress}
-                  onChange={({ value, id }) => {
+                  onChange={({ value, reportId }) => {
                     dispatch(updateDirectField(gasFormAction({ field: 'propertyAddress', value })));
-                    dispatch(updateDirectField(gasFormAction({ field: 'address_id', value: id })));
+                    dispatch(updateDirectField(gasFormAction({ field: 'address_id', value: reportId })));
                   }}
                   style={{ height: '48px' }}
                   className="shadow-sm appearance-none border rounded-lg w-full py-3 px-4 text-gray-800 leading-tight focus:outline-none focus:ring-3 transition-all duration-200 text-lg border-gray-300 focus:ring-blue-400 focus:border-blue-400"
@@ -258,13 +256,12 @@ const GasFormPage = () => {
               </div>
               <div>
                 <label className="block text-gray-700 text-base font-semibold mb-2">Agent Name</label>
-                <AgentAutocomplete
-                  value={formData.agentName}
-                  onChange={({ value, id }) => {
-                    dispatch(updateDirectField(gasFormAction({ field: 'agentName', value })));
-                    dispatch(updateDirectField(gasFormAction({ field: 'agent_id', value: id })));
+                <AgentSelect
+                  value={formData.agentId}
+                  onChange={value => {
+                    dispatch(updateDirectField(gasFormAction({ field: 'agentId', value })));
                   }}
-                  style={{ height: '48px' }}
+                  style={{ height: '47px', width: '100%' }}
                   className="shadow-sm appearance-none border rounded-lg w-full py-3 px-4 text-gray-800 leading-tight focus:outline-none focus:ring-3 transition-all duration-200 text-lg border-gray-300 focus:ring-blue-400 focus:border-blue-400"
                 />
               </div>
@@ -618,7 +615,7 @@ const GasFormPage = () => {
               </div>
               <div>
                 {currentStep === totalSteps ? (
-                  user && user.user_type_id === 1 && id ? (
+                  user.user_type_id === USER_ROLES.ADMIN ? (
                     <div className="flex gap-4">
                       <button type="button" onClick={handleDecline} className="px-6 py-2 bg-red-600 text-white rounded-md hover:bg-red-700">Decline</button>
                       <button type="button" onClick={handleApprove} className="px-6 py-2 bg-green-600 text-white rounded-md hover:bg-green-700">Approve</button>
@@ -630,7 +627,7 @@ const GasFormPage = () => {
                       disabled={isSubmitting}
                       className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
                     >
-                      {isSubmitting ? (id ? 'Updating...' : 'Submitting...') : (id ? 'Update' : 'Submit')}
+                      {isSubmitting ? (user.user_type_id === USER_ROLES.ADMIN ? 'Updating...' : 'Submitting...') : (user.user_type_id === USER_ROLES.ADMIN ? 'Update' : 'Submit')}
                     </button>
                   )
                 ) : (
@@ -656,6 +653,8 @@ const GasFormPage = () => {
             value={reward}
             onChange={setReward}
             min={1}
+            precision={0}
+            step={1}
         />
       </Modal>
     </div>

@@ -13,6 +13,7 @@ import SmokeFormPage from '@pages/SmokeFormPage';
 import WithdrawPage from '@pages/WithdrawPage';
 import PrivateRoute from '@components/Auth/PrivateRoute';
 import AccountPage from '@pages/AccountPage';
+import AgentRewardsPage from '@pages/AgentRewardsPage';
 
 const { Content } = Layout;
 
@@ -61,6 +62,7 @@ const App = () => {
             <Route path="/withdraw" element={<PrivateRoute><WithdrawPage /></PrivateRoute>} />
             <Route path="/users" element={<PrivateRoute><UserManagement /></PrivateRoute>} />
             <Route path="/account" element={<PrivateRoute><AccountPage /></PrivateRoute>} />
+            <Route path="/agent-rewards" element={<PrivateRoute><AgentRewardsPage /></PrivateRoute>} />
             <Route path="/" element={<Navigate to={getDefaultPath()} />} />
           </Route>
         </Route>

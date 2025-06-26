@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Upload } from 'antd';
 import { PlusOutlined } from '@ant-design/icons';
-import { customUploadRequest } from '../../utils/s3Upload';
+import { customUploadRequest } from '@utils/s3Upload';
 
 const ImageDropzone = ({ value, onChange, maxCount = 10 }) => {
   const [fileList, setFileList] = useState([]);

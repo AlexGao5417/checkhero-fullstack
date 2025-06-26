@@ -1,6 +1,6 @@
 export const initialFormData = {
     agentName: '',
-    agent_id: null,
+    agentId: null,
     propertyAddress: '',
     address_id: null,
     reportDate: '',

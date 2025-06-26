@@ -65,6 +65,7 @@ const Sidebar = () => {
     { key: 'reports', icon: <FileTextOutlined />, label: <Link to="/reports">Reports</Link> },
     isAdmin && { key: 'users', icon: <TeamOutlined />, label: <Link to="/users">User Management</Link> },
     (isAgent || isAdmin) && { key: 'withdraw', icon: <DollarCircleOutlined />, label: <Link to="/withdraw">Withdrawals</Link> },
+    isAdmin && { key: 'agent-rewards', icon: <DollarCircleOutlined />, label: <Link to="/agent-rewards">Agent Rewards</Link> },
     (isAdmin || isElectrician) && { 
       key: 'forms', 
       icon: <FormOutlined />, 

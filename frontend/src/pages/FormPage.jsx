@@ -20,7 +20,7 @@ import { Alert, Spin, Modal, Input, Button, Form, Row, Col, Typography, Card, Di
 import { useLocation, useNavigate, useParams, Link } from 'react-router-dom';
 import { generateFormPayload } from '@utils/formInitialState';
 import { ACTION_TYPES, REPORT_TYPES, REPORT_TYPE_IDS } from '@utils/constants';
-import AgentAutocomplete from '@components/Form/AgentAutocomplete';
+import AgentSelect from '@components/Form/AgentSelect';
 import AddressAutocomplete from '@components/Form/AddressAutocomplete';
 import ImageDropzone from '@components/Form/ImageDropzone';
 
@@ -43,9 +43,7 @@ const FormPage = () => {
   const [approvalComment, setApprovalComment] = useState('');
 
   const location = useLocation();
-  const initialFormData = location.state?.formData;
-  const reportId = location.state?.reportId;
-  const { id } = useParams();
+  const { reportId, isAffiliate, formData: initialFormData } = location.state;
   
   const formAction = generateFormPayload(REPORT_TYPES.ELECTRICITY_AND_SMOKE);
 
@@ -60,10 +58,9 @@ const FormPage = () => {
 
   useEffect(() => {
     const fetchReportData = async () => {
-      if (id) {
-        setIsSubmitting(true);
+      if (reportId) {
         try {
-          const res = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/reports/${id}`);
+          const res = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/reports/${reportId}`);
           const formData = res.data.form_data;
           dispatch(setFormData(formAction({ formData })));
           setReportData(res.data);
@@ -79,7 +76,7 @@ const FormPage = () => {
       setIsAdmin(user.user_type_id === 1);
       fetchReportData();
     }
-  }, [id, dispatch, formAction, user]);
+  }, [reportId, user.id]);
 
   const totalSteps = 6;
 
@@ -107,7 +104,7 @@ const FormPage = () => {
   };
 
   const handleApprove = () => {
-    if (reportData?.agent_is_affiliate) {
+    if (isAffiliate) {
         setIsRewardModalVisible(true);
     } else {
         submitApproval();
@@ -117,7 +114,7 @@ const FormPage = () => {
   const submitApproval = async (rewardAmount = null) => {
     setIsSubmitting(true);
     try {
-        await axios.put(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/reports/approve/${id}`, {
+        await axios.put(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/reports/approve/${reportId}`, {
             comment: comment,
             reward: rewardAmount
         });
@@ -243,22 +240,21 @@ const FormPage = () => {
                 <label className="block text-gray-700 text-base font-semibold mb-2">Property Address</label>
                 <AddressAutocomplete
                   value={formData.propertyAddress}
-                  onChange={({ value, id }) => {
+                  onChange={({ value, reportId }) => {
                     dispatch(updateDirectField(formAction({ field: 'propertyAddress', value })));
-                    dispatch(updateDirectField(formAction({ field: 'address_id', value: id })));
+                    dispatch(updateDirectField(formAction({ field: 'address_id', value: reportId })));
                   }}
                   style={{ height: '48px' }}
                 />
               </div>
               <div>
                 <label className="block text-gray-700 text-base font-semibold mb-2">Agent Name</label>
-                <AgentAutocomplete
-                  value={formData.agentName}
-                  onChange={({ value, id }) => {
-                    dispatch(updateDirectField(formAction({ field: 'agentName', value })));
-                    dispatch(updateDirectField(formAction({ field: 'agent_id', value: id })));
+                <AgentSelect
+                  value={formData.agentId}
+                  onChange={value => {
+                    dispatch(updateDirectField(formAction({ field: 'agentId', value })));
                   }}
-                  style={{ height: '48px' }}
+                  style={{ height: '47px', width: '100%' }}
                 />
               </div>
               <div>

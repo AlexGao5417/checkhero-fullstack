@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useSelector } from 'react-redux';
-import { Table, Button, Modal, Form, InputNumber, Pagination, Spin, notification, Row, Col, Card, Tag, Statistic, Upload, Space } from 'antd';
+import { Table, Button, Modal, Form, InputNumber, Pagination, Spin, notification, Row, Col, Card, Tag, Statistic, Upload, Space, Input } from 'antd';
 import { UploadOutlined } from '@ant-design/icons';
 import axios from '@utils/axios';
 import { format } from 'date-fns';
@@ -32,20 +32,23 @@ const WithdrawPage = () => {
   const [invoiceUrl, setInvoiceUrl] = useState('');
   const [isUploading, setIsUploading] = useState(false);
 
+  const [agentIdFilter, setAgentIdFilter] = useState('');
+  const [agentNameFilter, setAgentNameFilter] = useState('');
+
   const user = useSelector(state => state.auth.user);
   const isAdmin = user?.user_type_id === USER_ROLES.ADMIN;
 
-  const fetchWithdrawals = async () => {
+  const fetchWithdrawals = async (page = 1) => {
     try {
       setLoading(true);
-      const token = localStorage.getItem('token');
-      const url = isAdmin ? `${API_BASE}/users/withdrawals` : `${API_BASE}/agent/withdrawals`;
-      const response = await axios.get(url, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      const data = response.data.map(w => ({ ...w, key: w.id }));
-      setWithdrawals(data);
-      setTotal(data.length);
+      let url = isAdmin ? `${API_BASE}/agent/withdrawals?page=${page}&page_size=${PAGE_SIZE}` : `${API_BASE}/agent/withdrawals?page=${page}&page_size=${PAGE_SIZE}`;
+      if (isAdmin && agentNameFilter) {
+        url += `&agent_name=${encodeURIComponent(agentNameFilter)}`;
+      }
+      const response = await axios.get(url);
+      const data = isAdmin ? response.data.results : response.data.results || response.data;
+      setWithdrawals(data.map(w => ({ ...w, key: w.id })));
+      setTotal(isAdmin ? response.data.total : data.length);
     } catch (err) {
       notification.error({
         message: 'Failed to fetch withdrawals',
@@ -74,7 +77,7 @@ const WithdrawPage = () => {
       fetchAgentStatus();
       fetchWithdrawals(currentPage);
     }
-  }, [user, currentPage]);
+  }, [user, currentPage, agentNameFilter]);
 
   const showWithdrawModal = () => {
     fetchAgentStatus();
@@ -210,9 +213,35 @@ const WithdrawPage = () => {
   
   const paginatedData = withdrawals.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
+  // Filtered data
+  const filteredWithdrawals = withdrawals.filter(w => {
+    const agentIdMatch = agentIdFilter ? String(w.agent_id || '').includes(agentIdFilter) : true;
+    const agentNameMatch = agentNameFilter ? (w.agent_username || '').toLowerCase().includes(agentNameFilter.toLowerCase()) : true;
+    return agentIdMatch && agentNameMatch;
+  });
+
+  // Agent Rewards Table columns
+  const agentRewardsColumns = [
+    { title: 'Agent ID', dataIndex: 'agent_id', key: 'agent_id' },
+    { title: 'Agent Name', dataIndex: 'agent_name', key: 'agent_name' },
+    { title: 'Balance', dataIndex: 'balance', key: 'balance', render: (balance) => `$${Number(balance).toFixed(2)}` },
+  ];
+
   return (
     <div style={{ padding: 24 }}>
       <TitleBar />
+      {isAdmin && (
+        <Row gutter={16} style={{ marginBottom: 16 }} align="middle">
+          <Col xs={24} sm={8} md={6} lg={5} xl={4} style={{ marginBottom: 8 }}>
+            <Input
+              placeholder="Search Agent Name"
+              value={agentNameFilter}
+              onChange={e => { setAgentNameFilter(e.target.value); setCurrentPage(1); }}
+              allowClear
+            />
+          </Col>
+        </Row>
+      )}
       <Table columns={columns} dataSource={paginatedData} pagination={false} rowKey="key" loading={loading} bordered />
       <Pagination current={currentPage} pageSize={PAGE_SIZE} total={total} onChange={setCurrentPage} style={{ marginTop: 16, textAlign: 'right' }} />
       

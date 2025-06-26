@@ -37,7 +37,7 @@ import {
 import { useLocation, useNavigate, useParams, Link } from 'react-router-dom';
 import { generateFormPayload } from '@utils/formInitialState';
 import { ACTION_TYPES, REPORT_TYPES, REPORT_TYPE_IDS } from '@utils/constants';
-import AgentAutocomplete from '@components/Form/AgentAutocomplete';
+import AgentSelect from '@components/Form/AgentSelect';
 import AddressAutocomplete from '@components/Form/AddressAutocomplete';
 
 
@@ -58,8 +58,7 @@ const SmokeFormPage = () => {
 
   const navigate = useNavigate();
   const location = useLocation();
-  const initialFormData = location.state?.formData;
-  const { id } = useParams();
+  const { reportId, isAffiliate, formData: initialFormData } = location.state;
 
   const smokeFormAction = generateFormPayload(REPORT_TYPES.SMOKE);
 
@@ -71,10 +70,9 @@ const SmokeFormPage = () => {
 
   useEffect(() => {
     const fetchReportData = async () => {
-      if (id) {
-        setIsSubmitting(true);
+      if (reportId) {
         try {
-          const res = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/reports/${id}`);
+          const res = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/reports/${reportId}`);
           const formData = res.data.form_data;
           dispatch(setFormData(smokeFormAction({ formData })));
           setReportData(res.data);
@@ -90,7 +88,7 @@ const SmokeFormPage = () => {
       setIsAdmin(user.user_type_id === 1);
       fetchReportData();
     }
-  }, [id, dispatch, smokeFormAction, user]);
+  }, [reportId, user.id]);
 
   const totalSteps = 4;
 
@@ -124,7 +122,7 @@ const SmokeFormPage = () => {
   };
 
   const handleApprove = () => {
-    if (reportData?.agent_is_affiliate) {
+    if (isAffiliate) {
         setIsRewardModalVisible(true);
     } else {
         submitApproval();
@@ -134,7 +132,7 @@ const SmokeFormPage = () => {
   const submitApproval = async (rewardAmount = null) => {
     setIsSubmitting(true);
     try {
-        await axios.put(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/reports/approve/${id}`, {
+        await axios.put(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/reports/approve/${reportId}`, {
             comment: comment,
             reward: rewardAmount
         });
@@ -167,7 +165,7 @@ const SmokeFormPage = () => {
     setIsSubmitting(true);
     setAlert({ visible: false, type: '', message: '' });
 
-    const reportId = id; // From useParams
+    const reportId = reportId; // From useParams
 
     // UPDATE logic
     if (reportId) {
@@ -212,22 +210,21 @@ const SmokeFormPage = () => {
                 <label className="block text-gray-700 text-base font-semibold mb-2">Property Address</label>
                 <AddressAutocomplete
                   value={formData.propertyAddress}
-                  onChange={({ value, id }) => {
+                  onChange={({ value, reportId }) => {
                     dispatch(updateDirectField(smokeFormAction({ field: 'propertyAddress', value })));
-                    dispatch(updateDirectField(smokeFormAction({ field: 'address_id', value: id })));
+                    dispatch(updateDirectField(smokeFormAction({ field: 'address_id', value: reportId })));
                   }}
                   style={{ height: '48px' }}                
                 />
               </div>
               <div>
                 <label className="block text-gray-700 text-base font-semibold mb-2">Agent Name</label>
-                <AgentAutocomplete
-                  value={formData.agentName}
-                  onChange={({ value, id }) => {
-                    dispatch(updateDirectField(smokeFormAction({ field: 'agentName', value })));
-                    dispatch(updateDirectField(smokeFormAction({ field: 'agent_id', value: id })));
+                <AgentSelect
+                  value={formData.agentId}
+                  onChange={value => {
+                    dispatch(updateDirectField(smokeFormAction({ field: 'agentId', value })));
                   }}
-                  style={{ height: '48px' }}
+                  style={{ height: '47px', width: '100%' }}
                 />
               </div>
               <div>
@@ -353,7 +350,7 @@ const SmokeFormPage = () => {
               </div>
               <div>
                 {currentStep === totalSteps ? (
-                  user && user.user_type_id === 1 && id ? (
+                  user && user.user_type_id === 1 && reportId ? (
                     <div className="flex gap-4">
                       <button type="button" onClick={handleDecline} className="px-6 py-2 bg-red-600 text-white rounded-md hover:bg-red-700">Decline</button>
                       <button type="button" onClick={handleApprove} className="px-6 py-2 bg-green-600 text-white rounded-md hover:bg-green-700">Approve</button>
