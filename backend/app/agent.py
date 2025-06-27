@@ -38,8 +38,10 @@ class WithdrawRewardOut(BaseModel):
     id: int
     amount: float
     status: str
+    agent_name: str
     submit_datetime: datetime
     review_datetime: Optional[datetime] = None
+    invoice_pdf: Optional[str] = None
 
     class Config:
         orm_mode = True
@@ -48,6 +50,14 @@ class AgentRewardOut(BaseModel):
     agent_id: int
     agent_name: str
     balance: float
+    class Config:
+        orm_mode = True
+
+class AgentStatusOut(BaseModel):
+    is_affiliate: bool
+    balance: float
+    approved_withdraw: float
+    pending_withdrawal: float
     class Config:
         orm_mode = True
 
@@ -143,7 +153,7 @@ def get_withdrawals(
     page_size: int = Query(10, ge=1, le=100),
     agent_name: str = Query(None, min_length=1)
 ):
-    query = db.query(models.WithdrawReward)
+    query = db.query(models.WithdrawReward).options(joinedload(models.WithdrawReward.agent))
     if current_user.user_type_id == AGENT:
         query = query.filter(models.WithdrawReward.agent_id == current_user.id)
     elif current_user.user_type_id == constants.ADMIN:
@@ -155,7 +165,8 @@ def get_withdrawals(
     total = query.count()
     withdrawals = query.order_by(models.WithdrawReward.submit_datetime.desc()) \
         .offset((page - 1) * page_size).limit(page_size).all()
-    return {"total": total, "results": withdrawals}
+    results = [WithdrawRewardOut(id=wr.id, amount=wr.amount, status=wr.status, agent_name=wr.agent.username if wr.agent else '', submit_datetime=wr.submit_datetime, review_datetime=wr.review_datetime, invoice_pdf=wr.invoice_pdf) for wr in withdrawals]
+    return {"total": total, "results": results}
 
 @router.post("/withdraw")
 def request_withdrawal(amount: float = Body(..., gt=0), db: Session = Depends(database.get_db), current_user: models.User = Depends(auth.get_current_user)):
@@ -165,7 +176,7 @@ def request_withdrawal(amount: float = Body(..., gt=0), db: Session = Depends(da
     if amount <= 0:
         raise HTTPException(status_code=400, detail="Withdrawal amount must be positive")
 
-    balance_record = db.query(models.AgentBalance).filter(models.AgentBalance.user_id == current_user.id).first()
+    balance_record = db.query(models.AgentBalance).filter(models.AgentBalance.agent_id == current_user.id).first()
     current_balance = balance_record.balance if balance_record else 0
     
     if amount > current_balance:
@@ -182,27 +193,38 @@ def request_withdrawal(amount: float = Body(..., gt=0), db: Session = Depends(da
     db.refresh(new_withdrawal)
     return new_withdrawal
 
-@router.get("/status")
+@router.get("/status", response_model=AgentStatusOut)
 def get_agent_status(db: Session = Depends(database.get_db), current_user: models.User = Depends(auth.get_current_user)):
     if current_user.user_type_id != AGENT:
         raise HTTPException(status_code=403, detail="User is not an agent")
 
     if not current_user.is_affiliate:
-        return {"is_affiliate": False, "balance": 0, "pending_withdrawal": 0}
+        return AgentStatusOut(
+            is_affiliate=False,
+            balance=0.0,
+            approved_withdraw=0.0,
+            pending_withdrawal=0.0
+        )
 
-    balance_record = db.query(models.AgentBalance).filter(models.AgentBalance.user_id == current_user.id).first()
-    balance = balance_record.balance if balance_record else 0
+    balance_record = db.query(models.AgentBalance).filter(models.AgentBalance.agent_id == current_user.id).first()
+    balance = float(balance_record.balance) if balance_record else 0.0
+
+    approved_withdraw = db.query(func.sum(models.WithdrawReward.amount)).filter(
+        models.WithdrawReward.agent_id == current_user.id,
+        models.WithdrawReward.status == 'approved'
+    ).scalar() or 0.0
 
     pending_withdrawal = db.query(func.sum(models.WithdrawReward.amount)).filter(
         models.WithdrawReward.agent_id == current_user.id,
-        models.WithdrawReward.status == PENDING
-    ).scalar() or 0
+        models.WithdrawReward.status == 'pending'
+    ).scalar() or 0.0
 
-    return {
-        "is_affiliate": True,
-        "balance": balance,
-        "pending_withdrawal": pending_withdrawal
-    }
+    return AgentStatusOut(
+        is_affiliate=True,
+        balance=balance,
+        approved_withdraw=approved_withdraw,
+        pending_withdrawal=pending_withdrawal
+    )
 
 @router.get("/rewards")
 def get_agent_rewards(

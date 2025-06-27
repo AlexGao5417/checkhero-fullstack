@@ -89,10 +89,10 @@ def get_reports(
     reports = []
     if current_user.user_type_id == 1:  # Admin
         reports = db.query(models.Report).options(joinedload(models.Report.publisher), joinedload(models.Report.reviewer), joinedload(models.Report.address)).all()
-    elif current_user.user_type_id == 3:  # Agent
+    elif current_user.user_type_id == 2:  # Agent
         # An agent sees reports they published
-        reports = db.query(models.Report).filter(models.Report.publisher_id == current_user.id).options(joinedload(models.Report.publisher), joinedload(models.Report.reviewer), joinedload(models.Report.address)).all()
-    elif current_user.user_type_id == 2: # User (assuming they can also be publishers)
+        reports = db.query(models.Report).filter(models.Report.agent_id == current_user.id).options(joinedload(models.Report.publisher), joinedload(models.Report.reviewer), joinedload(models.Report.address)).all()
+    elif current_user.user_type_id == 3: # User (assuming they can also be publishers)
         reports = db.query(models.Report).filter(models.Report.publisher_id == current_user.id).options(joinedload(models.Report.publisher), joinedload(models.Report.reviewer), joinedload(models.Report.address)).all()
     else:
         reports = []

@@ -61,7 +61,7 @@ const GasFormPage = () => {
 
   const navigate = useNavigate();
   const location = useLocation();
-  const { reportId, isAffiliate, formData: initialFormData } = location.state;
+  const { reportId, isAffiliate, formData: initialFormData } = location.state ?? {};
 
   const gasFormAction = generateFormPayload(REPORT_TYPES.GAS);
 

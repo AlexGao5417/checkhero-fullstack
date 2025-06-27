@@ -40,7 +40,7 @@ const App = () => {
     if (!user) return '/login';
     switch (user.user_type_id) {
       case 1: return '/reports';
-      case 2: return '/property-management';
+      case 2: return '/reports';
       case 3: return '/reports';
       default: return '/login';
     }

@@ -256,7 +256,7 @@ def approve_withdrawal(request_id: int, request: ApproveWithdrawalRequest, db: S
         withdrawal.status = APPROVED
         withdrawal.invoice_pdf = request.invoice_pdf
         
-        agent_balance = db.query(models.AgentBalance).filter(models.AgentBalance.user_id == withdrawal.agent_id).first()
+        agent_balance = db.query(models.AgentBalance).filter(models.AgentBalance.agent_id == withdrawal.agent_id).first()
         if agent_balance:
             agent_balance.balance -= withdrawal.amount
     else:

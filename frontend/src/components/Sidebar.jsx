@@ -84,9 +84,9 @@ const Sidebar = () => {
         <Spin />
       ) : agentStatus?.is_affiliate && (
         <div style={{ padding: '8px', border: '1px solid #f0f0f0', borderRadius: '8px', marginBottom: '16px' }}>
-          <Statistic title="Balance" value={agentStatus.balance} precision={2} prefix="$" />
+          <Statistic title="Balance" value={agentStatus.balance} precision={0} prefix="$" style={{ marginBottom: '12px' }}/>
           {agentStatus.pending_withdrawal > 0 && (
-            <Statistic title="Pending" value={agentStatus.pending_withdrawal} precision={2} prefix="$" />
+            <Statistic title="Pending Withdrawal" value={agentStatus.pending_withdrawal} precision={0} prefix="$" />
           )}
         </div>
       )}

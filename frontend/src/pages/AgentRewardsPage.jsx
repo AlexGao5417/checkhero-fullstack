@@ -40,7 +40,6 @@ const AgentRewardsPage = () => {
 
   return (
     <div style={{ padding: 24 }}>
-      <Card>
         <Title level={2} style={{ marginBottom: 24 }}>Agent Rewards</Title>
         <Row gutter={16} style={{ marginBottom: 16 }} align="middle">
           <Col xs={24} sm={8} md={6} lg={5} xl={4} style={{ marginBottom: 8 }}>
@@ -70,7 +69,6 @@ const AgentRewardsPage = () => {
             style={{ borderRadius: 12, overflow: 'hidden' }}
           />
         )}
-      </Card>
     </div>
   );
 };

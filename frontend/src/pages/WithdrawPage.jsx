@@ -3,6 +3,7 @@ import { useSelector } from 'react-redux';
 import { Table, Button, Modal, Form, InputNumber, Pagination, Spin, notification, Row, Col, Card, Tag, Statistic, Upload, Space, Input } from 'antd';
 import { UploadOutlined } from '@ant-design/icons';
 import axios from '@utils/axios';
+import { customUploadRequest } from '@utils/s3Upload';
 import { format } from 'date-fns';
 import { USER_ROLES } from '@utils/constants';
 
@@ -22,7 +23,7 @@ const WithdrawPage = () => {
   const [loading, setLoading] = useState(true);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [status, setStatus] = useState({ balance: 0, is_affiliate: false });
+  const [status, setStatus] = useState({ balance: 0, is_affiliate: false, approved_withdraw: 0, pending_withdrawal: 0 });
   const [form] = Form.useForm();
 
   // Admin Review Modal State
@@ -31,12 +32,12 @@ const WithdrawPage = () => {
   const [reviewStep, setReviewStep] = useState(1);
   const [invoiceUrl, setInvoiceUrl] = useState('');
   const [isUploading, setIsUploading] = useState(false);
-
-  const [agentIdFilter, setAgentIdFilter] = useState('');
   const [agentNameFilter, setAgentNameFilter] = useState('');
 
   const user = useSelector(state => state.auth.user);
   const isAdmin = user?.user_type_id === USER_ROLES.ADMIN;
+
+  const maxWithdrawalAmount = status.balance - status.pending_withdrawal;
 
   const fetchWithdrawals = async (page = 1) => {
     try {
@@ -118,10 +119,7 @@ const WithdrawPage = () => {
     } else {
         setSubmitting(true);
         try {
-            const token = localStorage.getItem('token');
-            await axios.put(`${API_BASE}/users/withdrawals/${selectedRecord.id}/approve`, { is_approved: false }, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
+            await axios.put(`${API_BASE}/users/withdrawals/${selectedRecord.id}/approve`, { is_approved: false });
             notification.success({ message: 'Withdrawal declined' });
             setIsReviewModalVisible(false);
             fetchWithdrawals(currentPage);
@@ -159,48 +157,43 @@ const WithdrawPage = () => {
         setIsUploading(true);
         return true;
     },
-    customRequest: async ({ file, onSuccess, onError }) => {
-        try {
-            const presignRes = await axios.get(`${API_BASE}/reports/presigned-url/?content_type=${encodeURIComponent(file.type)}`);
-            const { upload_url, public_url } = presignRes.data;
-            await axios.put(upload_url, file, { headers: { 'Content-Type': file.type } });
-            setInvoiceUrl(public_url);
-            onSuccess();
-            notification.success({ message: 'Invoice uploaded successfully!' });
-        } catch (err) {
-            notification.error({ message: 'Upload failed', description: err.message });
-            onError(err);
-        } finally {
-            setIsUploading(false);
-        }
+    customRequest: async (options) => {
+      setIsUploading(true);
+      await customUploadRequest(options, (url) => setInvoiceUrl(url));
+      setIsUploading(false);
     },
   };
 
   const columns = [
     { title: 'ID', dataIndex: 'id', key: 'id' },
-    isAdmin && { title: 'Agent', dataIndex: 'agent_username', key: 'agent_username' },
-    { title: 'Amount', dataIndex: 'amount', key: 'amount', render: (amount) => `$${Number(amount).toFixed(2)}` },
+    isAdmin && { title: 'Agent', dataIndex: 'agent_name', key: 'agent_name' },
+    { title: 'Amount', dataIndex: 'amount', key: 'amount', render: (amount) => `$${Number(amount).toFixed(0)}` },
     { title: 'Status', dataIndex: 'status', key: 'status', render: (status) => <Tag color={statusColors[status]}>{status.toUpperCase()}</Tag> },
     { title: 'Date Submitted', dataIndex: 'submit_datetime', key: 'submit_datetime', render: (date) => format(new Date(date), 'PPpp') },
     { title: 'Date Reviewed', dataIndex: 'review_datetime', key: 'review_datetime', render: (date) => date ? format(new Date(date), 'PPpp') : 'N/A' },
     { title: 'Invoice', key: 'invoice', render: (_, record) => record.invoice_pdf ? <Button type="primary" ghost onClick={() => window.open(record.invoice_pdf, '_blank')}>Download</Button> : 'N/A' },
-    isAdmin && { title: 'Review', key: 'review', render: (_, record) => record.status === 'pending' ? <Button onClick={() => handleReviewClick(record)}>Review</Button> : null }
+    isAdmin && { title: 'Review', key: 'review', render: (_, record) => record.status === 'pending' ? <Button onClick={() => handleReviewClick(record)}>Review</Button> : 'N/A' }
   ].filter(Boolean);
 
   const TitleBar = () => (
+    <>
     <Row align="middle" justify="space-between" style={{ marginBottom: 24 }}>
-      <Col>
         <h2 style={{ margin: 0, fontWeight: 700, fontSize: 28 }}>{isAdmin ? 'All Withdrawals' : 'My Withdrawal History'}</h2>
-      </Col>
+      </Row>
       {!isAdmin && (
+        <Row justify="space-between" align="middle" style={{ marginBottom: 16 }}>
         <Col>
-          <Space>
-            <Statistic title="Available Balance" value={status.balance} precision={2} prefix="$" />
+            <Statistic title="Available Withdrawal Balance" value={maxWithdrawalAmount} precision={0} prefix="$" /> 
+          </Col>
+          <Col>
+            <Statistic title="Pending Withdrawal" value={status.pending_withdrawal} precision={0} prefix="$" /> 
+          </Col>
+          <Col>
             <Button type="primary" onClick={showWithdrawModal} size="large">Request Withdrawal</Button>
-          </Space>
         </Col>
+        </Row>
       )}
-    </Row>
+    </>
   );
 
   if (loading && !withdrawals.length) {
@@ -212,20 +205,6 @@ const WithdrawPage = () => {
   }
   
   const paginatedData = withdrawals.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
-
-  // Filtered data
-  const filteredWithdrawals = withdrawals.filter(w => {
-    const agentIdMatch = agentIdFilter ? String(w.agent_id || '').includes(agentIdFilter) : true;
-    const agentNameMatch = agentNameFilter ? (w.agent_username || '').toLowerCase().includes(agentNameFilter.toLowerCase()) : true;
-    return agentIdMatch && agentNameMatch;
-  });
-
-  // Agent Rewards Table columns
-  const agentRewardsColumns = [
-    { title: 'Agent ID', dataIndex: 'agent_id', key: 'agent_id' },
-    { title: 'Agent Name', dataIndex: 'agent_name', key: 'agent_name' },
-    { title: 'Balance', dataIndex: 'balance', key: 'balance', render: (balance) => `$${Number(balance).toFixed(2)}` },
-  ];
 
   return (
     <div style={{ padding: 24 }}>
@@ -247,10 +226,10 @@ const WithdrawPage = () => {
       
       {/* Agent withdrawal modal */}
       <Modal open={isModalVisible} title="Request a Withdrawal" onCancel={() => setIsModalVisible(false)} footer={null}>
-        <Form form={form} layout="vertical" onFinish={handleWithdraw} initialValues={{ amount: status.balance }}>
-            <p>Your current available balance is <strong>${status.balance.toFixed(2)}</strong>.</p>
-            <Form.Item name="amount" label="Amount to Withdraw" rules={[{ required: true, message: 'Please input the amount!' }, { type: 'number', min: 0.01 }, { type: 'number', max: status.balance }]}>
-                <InputNumber style={{ width: '100%' }} precision={2} min={0.01} max={status.balance} />
+        <Form form={form} layout="vertical" onFinish={handleWithdraw} initialValues={{ amount: maxWithdrawalAmount }}>
+            <p>Your current available balance is <strong>${maxWithdrawalAmount.toFixed(0)}</strong>.</p>
+            <Form.Item name="amount" label="Amount to Withdraw" rules={[{ required: true, message: 'Please input the amount!' }, { type: 'number', min: 0.01 }, { type: 'number', max: maxWithdrawalAmount }]}>
+                <InputNumber style={{ width: '100%' }} precision={0} min={1} max={maxWithdrawalAmount} />
             </Form.Item>
             <Form.Item>
                 <Button type="primary" htmlType="submit" loading={submitting}>Submit Request</Button>
@@ -268,7 +247,7 @@ const WithdrawPage = () => {
       >
         {reviewStep === 1 && (
             <Space direction="vertical" style={{width: '100%'}}>
-                <p>Agent: <strong>{selectedRecord?.agent_username}</strong></p>
+                <p>Agent: <strong>{selectedRecord?.agent_name}</strong></p>
                 <p>Amount: <strong>${Number(selectedRecord?.amount).toFixed(2)}</strong></p>
                 <p>Decide the outcome for this withdrawal request.</p>
                 <Space style={{marginTop: 16, justifyContent: 'flex-end', width: '100%'}}>

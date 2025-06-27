@@ -58,7 +58,7 @@ const SmokeFormPage = () => {
 
   const navigate = useNavigate();
   const location = useLocation();
-  const { reportId, isAffiliate, formData: initialFormData } = location.state;
+  const { reportId, isAffiliate, formData: initialFormData } = location.state ?? {};
 
   const smokeFormAction = generateFormPayload(REPORT_TYPES.SMOKE);
 
@@ -90,7 +90,7 @@ const SmokeFormPage = () => {
     }
   }, [reportId, user.id]);
 
-  const totalSteps = 4;
+  const totalSteps = 3;
 
   const handleNestedInputChange = (section, index, field) => (e) => {
     dispatch(updateNestedField(smokeFormAction({ section, index, field, value: e.target.value })));

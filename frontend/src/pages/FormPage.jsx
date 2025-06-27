@@ -43,7 +43,7 @@ const FormPage = () => {
   const [approvalComment, setApprovalComment] = useState('');
 
   const location = useLocation();
-  const { reportId, isAffiliate, formData: initialFormData } = location.state;
+  const { reportId, isAffiliate, formData: initialFormData } = location.state ?? {};
   
   const formAction = generateFormPayload(REPORT_TYPES.ELECTRICITY_AND_SMOKE);
 
