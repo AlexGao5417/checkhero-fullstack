@@ -5,8 +5,9 @@ from passlib.context import CryptContext
 from pydantic import BaseModel, EmailStr
 from typing import List, Optional
 from datetime import datetime
-from app.utils import get_password_hash
+from app.utils import get_password_hash, log_audit
 from app.constants import PENDING, APPROVED, DENIED, AGENT
+from uuid import UUID
 
 router = APIRouter(
     dependencies=[Depends(auth.get_current_user)]
@@ -15,11 +16,11 @@ router = APIRouter(
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 class UserOut(BaseModel):
-    id: int
+    id: UUID
     username: str
     email: EmailStr
     phone: Optional[str]
-    user_type_id: Optional[int]
+    user_type_id: Optional[UUID]
     user_type: Optional[str] = None  # For display
     is_affiliate: Optional[bool] = None
     balance: Optional[float] = None
@@ -31,7 +32,7 @@ class UserCreate(BaseModel):
     email: EmailStr
     password: str
     phone: Optional[str] = None
-    user_type_id: int
+    user_type_id: UUID
 
 class UserUpdate(BaseModel):
     username: Optional[str]
@@ -44,17 +45,17 @@ class AdminUserUpdate(BaseModel):
     username: Optional[str]
     email: Optional[EmailStr]
     phone: Optional[str]
-    user_type_id: Optional[int]
+    user_type_id: Optional[UUID]
     is_affiliate: Optional[bool] = None
 
 class WithdrawRewardAdminOut(BaseModel):
-    id: int
+    id: UUID
     amount: float
     status: str
     submit_datetime: datetime
     review_datetime: Optional[datetime] = None
     invoice_pdf: Optional[str] = None
-    agent_id: int
+    agent_id: UUID
     agent_username: str
 
     class Config:
@@ -74,7 +75,7 @@ def list_users(
     limit: int = 10,
     username: Optional[str] = Query(None),
     email: Optional[str] = Query(None),
-    user_type_id: Optional[int] = Query(None),
+    user_type_id: Optional[UUID] = Query(None),
     db: Session = Depends(database.get_db)
 ):
     query = db.query(models.User)
@@ -122,6 +123,7 @@ def create_user(user: UserCreate, db: Session = Depends(database.get_db), curren
     db.add(db_user)
     db.commit()
     db.refresh(db_user)
+    log_audit(db, user_id=current_user.id, action=constants.actionTypes['create'], target_type=constants.targetTypes['user'], target_id=db_user.id)
     user_type_str = None
     if db_user.user_type_id:
         ut = db.query(models.UserType).filter(models.UserType.id == db_user.user_type_id).first()
@@ -139,7 +141,7 @@ def create_user(user: UserCreate, db: Session = Depends(database.get_db), curren
     )
 
 @router.put("/{user_id}", response_model=UserOut)
-def update_user(user_id: int, user_update_data: UserUpdate, db: Session = Depends(database.get_db), current_user: models.User = Depends(auth.get_current_user)):
+def update_user(user_id: UUID, user_update_data: UserUpdate, db: Session = Depends(database.get_db), current_user: models.User = Depends(auth.get_current_user)):
     db_user = db.query(models.User).filter(models.User.id == user_id).first()
     if not db_user:
         raise HTTPException(status_code=404, detail="User not found")
@@ -157,6 +159,7 @@ def update_user(user_id: int, user_update_data: UserUpdate, db: Session = Depend
     
     db.commit()
     db.refresh(db_user)
+    log_audit(db, user_id=current_user.id, action=constants.actionTypes['update'], target_type=constants.targetTypes['user'], target_id=user_id)
     
     user_type_str = db.query(models.UserType.type).filter(models.UserType.id == db_user.user_type_id).scalar()
     return UserOut(
@@ -171,7 +174,7 @@ def update_user(user_id: int, user_update_data: UserUpdate, db: Session = Depend
     )
 
 @router.put("/admin/{user_id}", response_model=UserOut)
-def update_user_admin(user_id: int, user_update_data: AdminUserUpdate, db: Session = Depends(database.get_db), current_user: models.User = Depends(auth.get_current_user)):
+def update_user_admin(user_id: UUID, user_update_data: AdminUserUpdate, db: Session = Depends(database.get_db), current_user: models.User = Depends(auth.get_current_user)):
     if current_user.user_type_id != constants.ADMIN:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only admins can perform this action.")
     
@@ -192,6 +195,7 @@ def update_user_admin(user_id: int, user_update_data: AdminUserUpdate, db: Sessi
     
     db.commit()
     db.refresh(db_user)
+    log_audit(db, user_id=current_user.id, action=constants.actionTypes['update'], target_type=constants.targetTypes['user'], target_id=user_id)
     
     user_type_str = db.query(models.UserType.type).filter(models.UserType.id == db_user.user_type_id).scalar()
     return UserOut(
@@ -206,7 +210,7 @@ def update_user_admin(user_id: int, user_update_data: AdminUserUpdate, db: Sessi
     )
 
 @router.delete("/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_user(user_id: int, db: Session = Depends(database.get_db), current_user: models.User = Depends(auth.get_current_user)):
+def delete_user(user_id: UUID, db: Session = Depends(database.get_db), current_user: models.User = Depends(auth.get_current_user)):
     if current_user.user_type_id != constants.ADMIN:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only admins can delete users.")
     
@@ -215,10 +219,11 @@ def delete_user(user_id: int, db: Session = Depends(database.get_db), current_us
         raise HTTPException(status_code=404, detail="User not found")
     db.delete(db_user)
     db.commit()
+    log_audit(db, user_id=current_user.id, action=constants.actionTypes['delete'], target_type=constants.targetTypes['user'], target_id=user_id)
     return {"detail": "User deleted"}
 
 @router.put("/{user_id}/affiliate-status")
-def set_affiliate_status(user_id: int, request: SetAffiliateStatusRequest, db: Session = Depends(database.get_db), current_user: models.User = Depends(auth.get_current_user)):
+def set_affiliate_status(user_id: UUID, request: SetAffiliateStatusRequest, db: Session = Depends(database.get_db), current_user: models.User = Depends(auth.get_current_user)):
     if current_user.user_type_id != constants.ADMIN:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied.")
     
@@ -232,11 +237,12 @@ def set_affiliate_status(user_id: int, request: SetAffiliateStatusRequest, db: S
     user_to_update.is_affiliate = request.is_affiliate
     db.commit()
     db.refresh(user_to_update)
+    log_audit(db, user_id=current_user.id, action=constants.actionTypes['set_affiliate'], target_type=constants.targetTypes['user'], target_id=user_id)
     
     return {"message": f"User {user_to_update.username}'s affiliate status set to {request.is_affiliate}"}
 
 @router.put("/withdrawals/{request_id}/approve")
-def approve_withdrawal(request_id: int, request: ApproveWithdrawalRequest, db: Session = Depends(database.get_db), current_user: models.User = Depends(auth.get_current_user)):
+def approve_withdrawal(request_id: UUID, request: ApproveWithdrawalRequest, db: Session = Depends(database.get_db), current_user: models.User = Depends(auth.get_current_user)):
     if current_user.user_type_id != constants.ADMIN:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to perform this action")
 
@@ -265,6 +271,7 @@ def approve_withdrawal(request_id: int, request: ApproveWithdrawalRequest, db: S
 
     db.commit()
     db.refresh(withdrawal)
+    log_audit(db, user_id=current_user.id, action=constants.actionTypes['approve'], target_type=constants.targetTypes['withdraw'], target_id=request_id)
     return withdrawal
 
 # Reports API will be implemented in a new file: reports.py 

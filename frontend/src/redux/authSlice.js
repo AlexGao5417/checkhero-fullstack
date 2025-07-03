@@ -14,6 +14,7 @@ const authSlice = createSlice({
       state.user = action.payload.user || action.payload;
       state.isAuthenticated = true;
       state.token = action.payload.token || null;
+      state.isAffiliate = action.payload?.isAffiliate || false;
     },
     logout: (state) => {
       state.user = null;

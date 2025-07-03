@@ -15,7 +15,7 @@ import {
   Modal,
 } from "antd";
 import { DownloadOutlined, ExclamationCircleOutlined } from "@ant-design/icons";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import axios from '@utils/axios';
 import { USER_ROLES, REPORT_STATUS, REPORT_TYPES, REPORT_TYPE_IDS } from "@utils/constants";
 import moment from 'moment';
@@ -45,6 +45,18 @@ const ReportsTable = ({ onEditReport }) => {
   const [publisherFilter, setPublisherFilter] = useState("");
   const [reviewerFilter, setReviewerFilter] = useState("");
   const navigate = useNavigate();
+  const location = useLocation();
+  const [commentModal, setCommentModal] = useState({ visible: false, comment: '' });
+
+  // Accept address filter from navigation state
+  useEffect(() => {
+    if (location.state && location.state.addressFilter) {
+      setAddressFilter(location.state.addressFilter);
+      // Clear the state so back navigation doesn't keep the filter
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+    // eslint-disable-next-line
+  }, []);
 
   // Fetch reports from backend
   useEffect(() => {
@@ -168,7 +180,20 @@ const ReportsTable = ({ onEditReport }) => {
       key: "status",
       render: (status) => <Tag color={statusColors[status]}>{status}</Tag>,
     },
-    { title: "Comment", dataIndex: "comment", key: "comment" },
+    {
+      title: "Comment",
+      dataIndex: "comment",
+      key: "comment",
+      render: (comment) => {
+        if (!comment) return '';
+        const firstWord = comment.split(/\s+/)[0];
+        return (
+          <a style={{ cursor: 'pointer' }} onClick={() => setCommentModal({ visible: true, comment })}>
+            {firstWord} ...
+          </a>
+        );
+      },
+    },
     {
       title: "Reviewer",
       dataIndex: "reviewer",
@@ -290,6 +315,14 @@ const ReportsTable = ({ onEditReport }) => {
           />
         </>
       )}
+      <Modal
+        title="Full Comment"
+        open={commentModal.visible}
+        onCancel={() => setCommentModal({ visible: false, comment: '' })}
+        footer={null}
+      >
+        <div style={{ whiteSpace: 'pre-wrap' }}>{commentModal.comment}</div>
+      </Modal>
     </div>
   );
 };

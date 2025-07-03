@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import StepWrapper from '@components/Form/StepWrapper';
 import ImageDropzone from '@components/Form/ImageDropzone';
@@ -48,13 +48,12 @@ const SmokeFormPage = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState(null);
   const [alert, setAlert] = useState({ visible: false, type: '', message: '' });
-  const [isModalVisible, setIsModalVisible] = useState(false);
   const [comment, setComment] = useState('');
-  const [actionType, setActionType] = useState('');
   const [isAdmin, setIsAdmin] = useState(false);
   const [reportData, setReportData] = useState(null);
   const [isRewardModalVisible, setIsRewardModalVisible] = useState(false);
   const [reward, setReward] = useState(0);
+  const alertTimerRef = useRef();
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -89,6 +88,18 @@ const SmokeFormPage = () => {
       fetchReportData();
     }
   }, [reportId, user.id]);
+
+  useEffect(() => {
+    if (alert.visible) {
+      if (alertTimerRef.current) clearTimeout(alertTimerRef.current);
+      alertTimerRef.current = setTimeout(() => {
+        setAlert({ visible: false, type: '', message: '' });
+      }, 5000);
+    }
+    return () => {
+      if (alertTimerRef.current) clearTimeout(alertTimerRef.current);
+    };
+  }, [alert.visible]);
 
   const totalSteps = 3;
 
@@ -165,17 +176,15 @@ const SmokeFormPage = () => {
     setIsSubmitting(true);
     setAlert({ visible: false, type: '', message: '' });
 
-    const reportId = reportId; // From useParams
-
     // UPDATE logic
     if (reportId) {
       try {
         const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
         const payload = { form_data: formData, comment: comment };
         await axios.put(`${apiUrl}/reports/update/${reportId}`, payload);
-        message.success('Report updated successfully!');
+        setAlert({ visible: true, type: 'success', message: 'Report updated successfully!' });
       } catch (err) {
-        message.error('Failed to update report.');
+        setAlert({ visible: true, type: 'error', message: 'Failed to update report.' });
       } finally {
         setIsSubmitting(false);
       }
@@ -187,17 +196,22 @@ const SmokeFormPage = () => {
       const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
       const payload = {
         form_data: formData,
-        address: formData.propertyDetails.propertyAddress,
+        address: formData.propertyAddress,
         report_type_id: REPORT_TYPE_IDS[REPORT_TYPES.SMOKE],
       };
       const res = await axios.post(`${apiUrl}/reports/create`, payload);
       dispatch(resetForm(smokeFormAction()));
-      message.success('Report created successfully!');
+      setAlert({ visible: true, type: 'success', message: 'Report created successfully!' });
     } catch (err) {
-      message.error('Failed to create report. Please try again.');
+      setAlert({ visible: true, type: 'error', message: 'Failed to create report. Please try again.' });
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleAddressSelectAndChange = ({ value, id }) => {
+    dispatch(updateDirectField(smokeFormAction({ field: 'propertyAddress', value })));
+    dispatch(updateDirectField(smokeFormAction({ field: 'address_id', value: id })));
   };
 
   const renderFormStep = () => {
@@ -210,10 +224,8 @@ const SmokeFormPage = () => {
                 <label className="block text-gray-700 text-base font-semibold mb-2">Property Address</label>
                 <AddressAutocomplete
                   value={formData.propertyAddress}
-                  onChange={({ value, reportId }) => {
-                    dispatch(updateDirectField(smokeFormAction({ field: 'propertyAddress', value })));
-                    dispatch(updateDirectField(smokeFormAction({ field: 'address_id', value: reportId })));
-                  }}
+                  onChange={handleAddressSelectAndChange}
+                  onSelect={handleAddressSelectAndChange}
                   style={{ height: '48px' }}                
                 />
               </div>
@@ -334,9 +346,10 @@ const SmokeFormPage = () => {
         </div>
         {alert.visible && (
           <Alert
-            message={alert.message}
             type={alert.type}
-            showIcon
+            message={alert.message}
+            closable
+            onClose={() => setAlert({ visible: false, type: '', message: '' })}
             style={{ marginBottom: 16 }}
           />
         )}

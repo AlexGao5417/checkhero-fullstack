@@ -10,3 +10,25 @@ DRAFT = 'draft'
 APPROVED = 'approved'
 DENIED = 'denied'
 PENDING = 'pending'
+
+actionTypes = {
+    'create': 'CREATE',
+    'update': 'UPDATE',
+    'approve': 'APPROVE',
+    'delete': 'DELETE',
+    'login': 'LOGIN',
+    'register': 'REGISTER',
+    'withdraw': 'WITHDRAW',
+    'assign_address': 'ASSIGN_ADDRESS',
+    'edit_address': 'EDIT_ADDRESS',
+    'remove_address': 'REMOVE_ADDRESS',
+    'set_affiliate': 'SET_AFFILIATE',
+}
+
+targetTypes = {
+    'report': 'REPORT',
+    'user': 'USER',
+    'address': 'ADDRESS',
+    'withdraw': 'WITHDRAW',
+    'address_agent': 'ADDRESS_AGENT',
+}

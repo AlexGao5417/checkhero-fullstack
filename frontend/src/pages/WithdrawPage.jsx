@@ -29,7 +29,6 @@ const WithdrawPage = () => {
   // Admin Review Modal State
   const [isReviewModalVisible, setIsReviewModalVisible] = useState(false);
   const [selectedRecord, setSelectedRecord] = useState(null);
-  const [reviewStep, setReviewStep] = useState(1);
   const [invoiceUrl, setInvoiceUrl] = useState('');
   const [isUploading, setIsUploading] = useState(false);
   const [agentNameFilter, setAgentNameFilter] = useState('');
@@ -88,7 +87,11 @@ const WithdrawPage = () => {
   const handleWithdraw = async (values) => {
     setSubmitting(true);
     try {
-      await axios.post(`${API_BASE}/agent/withdraw`, values.amount, { headers: { 'Content-Type': 'application/json' } });
+      await axios.post(
+        `${API_BASE}/agent/withdraw`, 
+        { amount: values.amount, invoice_pdf: values.invoice_pdf }, 
+        { headers: { 'Content-Type': 'application/json' } }
+      );
       notification.success({ message: 'Withdrawal request submitted' });
       setIsModalVisible(false);
       form.resetFields();
@@ -104,8 +107,6 @@ const WithdrawPage = () => {
   const handleReviewClick = (record) => {
     setSelectedRecord(record);
     setIsReviewModalVisible(true);
-    setReviewStep(1);
-    setInvoiceUrl('');
   };
 
   const handleReviewCancel = () => {
@@ -114,20 +115,16 @@ const WithdrawPage = () => {
   };
   
   const handleApproveDecline = async (isApproved) => {
-    if (isApproved) {
-        setReviewStep(2);
-    } else {
-        setSubmitting(true);
-        try {
-            await axios.put(`${API_BASE}/users/withdrawals/${selectedRecord.id}/approve`, { is_approved: false });
-            notification.success({ message: 'Withdrawal declined' });
-            setIsReviewModalVisible(false);
-            fetchWithdrawals(currentPage);
-        } catch(err) {
-            notification.error({ message: 'Action failed', description: err.response?.data?.detail || err.message });
-        } finally {
-            setSubmitting(false);
-        }
+    setSubmitting(true);
+    try {
+        await axios.put(`${API_BASE}/users/withdrawals/${selectedRecord.id}/approve`, { is_approved: false });
+        notification.success({ message: 'Withdrawal declined' });
+        setIsReviewModalVisible(false);
+        fetchWithdrawals(currentPage);
+    } catch(err) {
+        notification.error({ message: 'Action failed', description: err.response?.data?.detail || err.message });
+    } finally {
+        setSubmitting(false);
     }
   };
 
@@ -135,7 +132,7 @@ const WithdrawPage = () => {
     setSubmitting(true);
     try {
         const token = localStorage.getItem('token');
-        await axios.put(`${API_BASE}/users/withdrawals/${selectedRecord.id}/approve`, { is_approved: true, invoice_pdf: invoiceUrl }, {
+        await axios.put(`${API_BASE}/users/withdrawals/${selectedRecord.id}/approve`, { is_approved: true }, {
             headers: { Authorization: `Bearer ${token}` }
         });
         notification.success({ message: 'Withdrawal approved' });
@@ -231,6 +228,11 @@ const WithdrawPage = () => {
             <Form.Item name="amount" label="Amount to Withdraw" rules={[{ required: true, message: 'Please input the amount!' }, { type: 'number', min: 0.01 }, { type: 'number', max: maxWithdrawalAmount }]}>
                 <InputNumber style={{ width: '100%' }} precision={0} min={1} max={maxWithdrawalAmount} />
             </Form.Item>
+            <Form.Item name="invoice_pdf" label="Upload Invoice PDF">
+                <Upload {...pdfUploadProps}>
+                    <Button icon={<UploadOutlined />}>Click to Upload PDF</Button>
+                </Upload>
+            </Form.Item>
             <Form.Item>
                 <Button type="primary" htmlType="submit" loading={submitting}>Submit Request</Button>
             </Form.Item>
@@ -238,36 +240,28 @@ const WithdrawPage = () => {
       </Modal>
 
       {/* Admin review modal */}
-      <Modal 
-        open={isReviewModalVisible} 
-        title={`Review Withdrawal ID: ${selectedRecord?.id}`} 
-        onCancel={handleReviewCancel}
-        footer={null}
-        destroyOnHidden
-      >
-        {reviewStep === 1 && (
-            <Space direction="vertical" style={{width: '100%'}}>
-                <p>Agent: <strong>{selectedRecord?.agent_name}</strong></p>
-                <p>Amount: <strong>${Number(selectedRecord?.amount).toFixed(2)}</strong></p>
-                <p>Decide the outcome for this withdrawal request.</p>
-                <Space style={{marginTop: 16, justifyContent: 'flex-end', width: '100%'}}>
-                    <Button onClick={() => handleApproveDecline(false)} loading={submitting} danger>Decline</Button>
-                    <Button type="primary" onClick={() => handleApproveDecline(true)} loading={submitting}>Approve</Button>
-                </Space>
+      {isReviewModalVisible && selectedRecord && (
+        <Modal open={isReviewModalVisible} title="Review Withdrawal" onCancel={() => setIsReviewModalVisible(false)} footer={null}>
+          <Space direction="vertical" style={{width: '100%'}}>
+            <p>Agent: <strong>{selectedRecord?.agent_name}</strong></p>
+            <p>Amount: <strong>${Number(selectedRecord?.amount).toFixed(2)}</strong></p>
+            <p>Decide the outcome for this withdrawal request.</p>
+            <Space style={{marginTop: 16, justifyContent: 'flex-end', width: '100%'}}>
+                <Button onClick={() => handleApproveDecline(false)} loading={submitting} danger>Decline</Button>
+                <Button type="primary" onClick={() => handleApproveDecline(true)} loading={submitting}>Approve</Button>
             </Space>
-        )}
-        {reviewStep === 2 && (
-            <Space direction="vertical" style={{width: '100%'}}>
-                <p>Upload the invoice PDF for this withdrawal.</p>
-                <Upload {...pdfUploadProps}>
-                    <Button icon={<UploadOutlined />}>Click to Upload PDF</Button>
-                </Upload>
-                <Button type="primary" onClick={handleConfirmApproval} loading={submitting || isUploading} disabled={!invoiceUrl}>
-                    Confirm Approval
-                </Button>
-            </Space>
-        )}
-      </Modal>
+            <p>Invoice PDF Preview:</p>
+            {selectedRecord.invoice_pdf ? (
+              <iframe src={selectedRecord.invoice_pdf} title="Invoice PDF Preview" width="100%" height="400px" style={{ border: '1px solid #ccc', borderRadius: 4 }} />
+            ) : (
+              <p>No invoice PDF uploaded.</p>
+            )}
+            <Button type="primary" onClick={handleConfirmApproval} loading={submitting || isUploading}>
+              Confirm Approval
+            </Button>
+          </Space>
+        </Modal>
+      )}
     </div>
   );
 };

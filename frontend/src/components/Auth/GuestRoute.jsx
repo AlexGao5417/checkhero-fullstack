@@ -10,7 +10,7 @@ const GuestRoute = () => {
     if (!user) return '/reports'; // Fallback
     switch (user.user_type_id) {
       case USER_ROLES.ADMIN: return '/reports';
-      case USER_ROLES.AGENT: return '/property-management';
+      case USER_ROLES.AGENT: return '/reports';
       case USER_ROLES.USER: return '/reports';
       default: return '/reports';
     }

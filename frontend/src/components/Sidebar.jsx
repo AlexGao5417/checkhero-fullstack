@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Layout, Menu, Button, Spin, Statistic, Avatar, Badge, Space, Typography, Tag, notification } from 'antd';
 import { logout } from '../redux/authSlice';
 import {
@@ -22,6 +22,7 @@ const Sidebar = () => {
   const { user } = useSelector(state => state.auth);
   const dispatch = useDispatch();
   const navigate = useNavigate();
+  const location = useLocation();
   const [agentStatus, setAgentStatus] = useState(null);
   const [loadingStatus, setLoadingStatus] = useState(false);
 
@@ -63,8 +64,9 @@ const Sidebar = () => {
   const menuItems = [
     { key: 'account', icon: <UserOutlined />, label: <Link to="/account">My Account</Link> },
     { key: 'reports', icon: <FileTextOutlined />, label: <Link to="/reports">Reports</Link> },
+    { key: 'property-management', icon: <HomeOutlined />, label: <Link to="/property-management">Property Management</Link> },
     isAdmin && { key: 'users', icon: <TeamOutlined />, label: <Link to="/users">User Management</Link> },
-    (isAgent || isAdmin) && { key: 'withdraw', icon: <DollarCircleOutlined />, label: <Link to="/withdraw">Withdrawals</Link> },
+    (isAgent && user.isAffiliate || isAdmin) && { key: 'withdraw', icon: <DollarCircleOutlined />, label: <Link to="/withdraw">Withdrawals</Link> },
     isAdmin && { key: 'agent-rewards', icon: <DollarCircleOutlined />, label: <Link to="/agent-rewards">Agent Rewards</Link> },
     (isAdmin || isElectrician) && { 
       key: 'forms', 
@@ -75,8 +77,30 @@ const Sidebar = () => {
         { key: 'form-gas', label: <Link to="/gas-form">Gas</Link> },
         { key: 'form-smoke', label: <Link to="/smoke-form">Smoke Only</Link> },
       ]
-    }
+    },
+    isAdmin && { key: 'audit-logs', icon: <FileTextOutlined />, label: <Link to="/audit-logs">Audit Logs</Link> },
   ].filter(Boolean);
+
+  // Map pathnames to menu keys
+  const pathToKey = {
+    '/account': 'account',
+    '/reports': 'reports',
+    '/property-management': 'property-management',
+    '/users': 'users',
+    '/withdraw': 'withdraw',
+    '/agent-rewards': 'agent-rewards',
+    '/form': 'form-electric',
+    '/gas-form': 'form-gas',
+    '/smoke-form': 'form-smoke',
+    '/audit-logs': 'audit-logs',
+  };
+  // For nested forms, highlight 'forms' parent if on a form page
+  const formPaths = ['/form', '/gas-form', '/smoke-form'];
+  let selectedKey = pathToKey[location.pathname] || 'account';
+  let openKeys = [];
+  if (formPaths.includes(location.pathname)) {
+    openKeys = ['forms'];
+  }
 
   return (
     <Sider width={250} style={{ background: '#fff', padding: '16px' }}>
@@ -92,7 +116,8 @@ const Sidebar = () => {
       )}
       <Menu
         mode="inline"
-        defaultSelectedKeys={['1']}
+        selectedKeys={[selectedKey]}
+        defaultOpenKeys={openKeys}
         style={{ height: 'calc(100% - 150px)', borderRight: 0 }}
         items={menuItems}
       />

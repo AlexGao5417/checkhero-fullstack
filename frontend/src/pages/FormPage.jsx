@@ -230,6 +230,11 @@ const FormPage = () => {
     }
   };
 
+  const handleAddressSelectAndChange = ({ value, id }) => {
+    dispatch(updateDirectField(formAction({ field: 'propertyAddress', value })));
+    dispatch(updateDirectField(formAction({ field: 'address_id', value: id })));
+  };
+
   const renderFormStep = () => {
     switch (currentStep) {
       case 1:
@@ -240,10 +245,8 @@ const FormPage = () => {
                 <label className="block text-gray-700 text-base font-semibold mb-2">Property Address</label>
                 <AddressAutocomplete
                   value={formData.propertyAddress}
-                  onChange={({ value, reportId }) => {
-                    dispatch(updateDirectField(formAction({ field: 'propertyAddress', value })));
-                    dispatch(updateDirectField(formAction({ field: 'address_id', value: reportId })));
-                  }}
+                  onChange={handleAddressSelectAndChange}
+                  onSelect={handleAddressSelectAndChange}
                   style={{ height: '48px' }}
                 />
               </div>

@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app import models, database, auth, reports, user_management, agent, checkhero, constants
+from app import models, database, auth, reports, user_management, agent, checkhero, constants, audit
 from app.database import SessionLocal
 from sqlalchemy.orm import Session
 from dotenv import load_dotenv
@@ -39,6 +39,7 @@ app.include_router(auth.router, prefix="/auth", tags=["auth"])
 app.include_router(reports.router, prefix="/reports", tags=["reports"])
 app.include_router(user_management.router, prefix="/users", tags=["users"]) # This now includes the admin routes
 app.include_router(agent.router, prefix="/agent", tags=["agent"])
+app.include_router(audit.router)
 
 
 @app.get("/")

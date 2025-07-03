@@ -13,6 +13,8 @@ from dotenv import load_dotenv
 from botocore.client import Config
 from app import constants
 from decimal import Decimal
+from app.utils import log_audit
+from uuid import UUID
 
 
 load_dotenv()
@@ -47,22 +49,22 @@ def upload_to_s3(file_path, object_name=None):
         raise HTTPException(status_code=500, detail=f"Failed to upload to S3: {e}")
 
 class ReportOut(BaseModel):
-    id: int
+    id: UUID
     address: str
-    address_id: int
+    address_id: UUID
     publisher: str
-    publisher_id: int
-    report_type_id: int
-    created_date: str
-    review_date: Optional[str]
+    publisher_id: UUID
+    report_type_id: UUID
+    created_date: Optional[datetime]
+    review_date: Optional[datetime]
     status: str
     comment: Optional[str]
     reviewer: Optional[str]
-    reviewer_id: Optional[int]
+    reviewer_id: Optional[UUID]
     form_data: Optional[dict]
     pdf_url: Optional[str]
     reward: Optional[float] = None
-    agent_id: Optional[int] = None
+    agent_id: Optional[UUID] = None
     agent: Optional[str] = None
     is_affiliate: Optional[bool] = None
     class Config:
@@ -71,7 +73,7 @@ class ReportOut(BaseModel):
 class ReportCreate(BaseModel):
     form_data: dict
     address: str
-    report_type_id: int
+    report_type_id: UUID
 
 class ReportUpdate(BaseModel):
     form_data: Optional[dict] = None
@@ -90,7 +92,6 @@ def get_reports(
     if current_user.user_type_id == 1:  # Admin
         reports = db.query(models.Report).options(joinedload(models.Report.publisher), joinedload(models.Report.reviewer), joinedload(models.Report.address)).all()
     elif current_user.user_type_id == 2:  # Agent
-        # An agent sees reports they published
         reports = db.query(models.Report).filter(models.Report.agent_id == current_user.id).options(joinedload(models.Report.publisher), joinedload(models.Report.reviewer), joinedload(models.Report.address)).all()
     elif current_user.user_type_id == 3: # User (assuming they can also be publishers)
         reports = db.query(models.Report).filter(models.Report.publisher_id == current_user.id).options(joinedload(models.Report.publisher), joinedload(models.Report.reviewer), joinedload(models.Report.address)).all()
@@ -106,8 +107,6 @@ def get_reports(
             except Exception:
                 form_data = "" if not r.form_data else r.form_data
         
-        # Pass the date strings directly
-        review_date_str = r.review_date.isoformat() if r.review_date else None
         agent = db.query(models.User).filter(models.User.id == r.agent_id).first()
         is_affiliate = agent.is_affiliate if agent else None
         result.append(ReportOut(
@@ -119,8 +118,8 @@ def get_reports(
             publisher=r.publisher.username if r.publisher else 'N/A',
             publisher_id=r.publisher_id,
             report_type_id=r.report_type_id,
-            created_date=r.created_date, # Use the string directly
-            review_date=review_date_str,
+            created_date=r.created_date,
+            review_date=r.review_date,
             status=r.status,
             comment=r.comment,
             reviewer=r.reviewer.username if r.reviewer else 'N/A',
@@ -134,7 +133,7 @@ def get_reports(
     return result
 
 @router.get("/{report_id}", response_model=ReportOut)
-def get_report(report_id: int, db: Session = Depends(database.get_db), current_user: models.User = Depends(auth.get_current_user)):
+def get_report(report_id: UUID, db: Session = Depends(database.get_db), current_user: models.User = Depends(auth.get_current_user)):
     report_query = db.query(models.Report).options(
         joinedload(models.Report.publisher).options(joinedload(models.User.agent_balance)),
         joinedload(models.Report.reviewer)
@@ -164,8 +163,8 @@ def get_report(report_id: int, db: Session = Depends(database.get_db), current_u
         publisher=db_report.publisher.username if db_report.publisher else 'N/A',
         publisher_id=db_report.publisher_id,
         report_type_id=db_report.report_type_id,
-        created_date=db_report.created_date.isoformat() if isinstance(db_report.created_date, datetime) else db_report.created_date,
-        review_date=db_report.review_date.isoformat() if isinstance(db_report.review_date, datetime) else db_report.review_date,
+        created_date=db_report.created_date,
+        review_date=db_report.review_date,
         status=db_report.status,
         comment=db_report.comment,
         reviewer=db_report.reviewer.username if db_report.reviewer else 'N/A',
@@ -249,10 +248,11 @@ def create_report(report_data: ReportCreate, db: Session = Depends(database.get_
     db.add(new_report)
     db.commit()
     db.refresh(new_report)
+    log_audit(db, user_id=current_user.id, action=constants.actionTypes['create'], target_type=constants.targetTypes['report'], target_id=new_report.id)
     return new_report
 
 @router.put("/update/{report_id}", response_model=ReportOut)
-def update_report(report_id: int, update_data: ReportUpdate, db: Session = Depends(database.get_db), current_user: models.User = Depends(auth.get_current_user)):
+def update_report(report_id: UUID, update_data: ReportUpdate, db: Session = Depends(database.get_db), current_user: models.User = Depends(auth.get_current_user)):
     db_report = db.query(models.Report).filter(models.Report.id == report_id).first()
     if not db_report:
         raise HTTPException(status_code=404, detail="Report not found")
@@ -272,12 +272,11 @@ def update_report(report_id: int, update_data: ReportUpdate, db: Session = Depen
     
     db.commit()
     db.refresh(db_report)
-    
-    # Reload relationships to return full data
+    log_audit(db, user_id=current_user.id, action=constants.actionTypes['update'], target_type=constants.targetTypes['report'], target_id=report_id)
     return get_report(report_id, db, current_user)
 
 @router.put("/approve/{report_id}", response_model=ReportOut)
-def approve_report(report_id: int, request_data: ApproveReportRequest, db: Session = Depends(database.get_db), current_user: models.User = Depends(auth.get_current_user)):
+def approve_report(report_id: UUID, request_data: ApproveReportRequest, db: Session = Depends(database.get_db), current_user: models.User = Depends(auth.get_current_user)):
     if current_user.user_type_id != 1: # ADMIN
         raise HTTPException(status_code=403, detail="Only admins can approve reports.")
 
@@ -310,14 +309,40 @@ def approve_report(report_id: int, request_data: ApproveReportRequest, db: Sessi
 
     db.commit()
     db.refresh(db_report)
+    log_audit(db, user_id=current_user.id, action=constants.actionTypes['approve'], target_type=constants.targetTypes['report'], target_id=report_id)
+
+    # Update or create AddressReport for this address and report type
+    address_id = db_report.address_id
+    report_type_id = db_report.report_type_id
+    review_date = db_report.created_date
+    # Ensure review_date is a datetime object
+    if isinstance(review_date, str):
+        from datetime import datetime
+        review_date = datetime.fromisoformat(review_date)
+    if address_id and report_type_id:
+        address_report = db.query(models.AddressReport).filter_by(address_id=address_id, last_inspect_type_id=report_type_id).first()
+        if address_report:
+            address_report.last_report_id = db_report.id
+            address_report.last_inspect_time = review_date
+        else:
+            address_report = models.AddressReport(
+                address_id=address_id,
+                last_report_id=db_report.id,
+                last_inspect_type_id=report_type_id,
+                last_inspect_time=review_date
+            )
+            db.add(address_report)
+        db.commit()
+
     return get_report(report_id, db, current_user)
 
 @router.delete("/delete/{report_id}")
-def delete_report(report_id: int, db: Session = Depends(database.get_db)):
+def delete_report(report_id: UUID, db: Session = Depends(database.get_db), current_user: models.User = Depends(auth.get_current_user)):
     db_report = db.query(models.Report).filter(models.Report.id == report_id).first()
     if not db_report:
         raise HTTPException(status_code=404, detail="Report not found")
     
     db.delete(db_report)
     db.commit()
+    log_audit(db, user_id=current_user.id, action=constants.actionTypes['delete'], target_type=constants.targetTypes['report'], target_id=report_id)
     return {"detail": "Report deleted successfully"} 

@@ -6,9 +6,10 @@ from passlib.context import CryptContext
 from jose import JWTError, jwt
 from datetime import datetime, timedelta, timezone
 from pydantic import BaseModel, EmailStr
-from app.utils import get_password_hash, verify_password
+from app.utils import get_password_hash, verify_password, log_audit
 from typing import Optional
 from . import constants
+from uuid import UUID
 
 SECRET_KEY = "supersecretkey"  # In production, use env var
 ALGORITHM = "HS256"
@@ -21,11 +22,11 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 
 class UserOut(BaseModel):
-    id: int
+    id: UUID
     username: str
     email: EmailStr
     phone: Optional[str]
-    user_type_id: int
+    user_type_id: UUID
 
     class Config:
         orm_mode = True
@@ -35,7 +36,7 @@ class UserCreate(BaseModel):
     email: str
     password: str
     phone: str = None
-    user_type_id: int
+    user_type_id: UUID
 
 class Token(BaseModel):
     access_token: str
@@ -92,6 +93,7 @@ def register(user: UserCreate, db: Session = Depends(database.get_db), response:
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
+    log_audit(db, user_id=new_user.id, action=constants.actionTypes['register'], target_type=constants.targetTypes['user'], target_id=new_user.id)
     token_data = {
         "sub": new_user.email,
         "user_id": new_user.id,

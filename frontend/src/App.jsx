@@ -14,6 +14,8 @@ import WithdrawPage from '@pages/WithdrawPage';
 import PrivateRoute from '@components/Auth/PrivateRoute';
 import AccountPage from '@pages/AccountPage';
 import AgentRewardsPage from '@pages/AgentRewardsPage';
+import AuditLogsPage from '@pages/AuditLogsPage';
+import PropertyManagementPage from '@pages/PropertyManagementPage';
 
 const { Content } = Layout;
 
@@ -63,6 +65,8 @@ const App = () => {
             <Route path="/users" element={<PrivateRoute><UserManagement /></PrivateRoute>} />
             <Route path="/account" element={<PrivateRoute><AccountPage /></PrivateRoute>} />
             <Route path="/agent-rewards" element={<PrivateRoute><AgentRewardsPage /></PrivateRoute>} />
+            <Route path="/audit-logs" element={<PrivateRoute><AuditLogsPage /></PrivateRoute>} />
+            <Route path="/property-management" element={<PrivateRoute><PropertyManagementPage /></PrivateRoute>} />
             <Route path="/" element={<Navigate to={getDefaultPath()} />} />
           </Route>
         </Route>

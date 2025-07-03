@@ -3,6 +3,8 @@ import { AutoComplete, Spin, Input } from 'antd';
 import axios from '@utils/axios';
 import debounce from 'lodash/debounce';
 
+const MIN_SEARCH_LENGTH = 2;
+
 const AsyncAutocomplete = ({
   value,
   onChange,
@@ -20,7 +22,7 @@ const AsyncAutocomplete = ({
   const justSelected = useRef(false);
 
   const fetchOptions = async (searchText) => {
-    if (!searchText) {
+    if (!searchText || searchText.length < MIN_SEARCH_LENGTH) {
       setOptions([]);
       return;
     }

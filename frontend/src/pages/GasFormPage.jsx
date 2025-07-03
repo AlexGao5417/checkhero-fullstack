@@ -236,6 +236,11 @@ const GasFormPage = () => {
     }
   };
 
+  const handleAddressSelectAndChange = ({ value, id }) => {
+    dispatch(updateDirectField(gasFormAction({ field: 'propertyAddress', value })));
+    dispatch(updateDirectField(gasFormAction({ field: 'address_id', value: id })));
+  };
+
   const renderFormStep = () => {
     switch (currentStep) {
       case 1:
@@ -246,10 +251,8 @@ const GasFormPage = () => {
                 <label className="block text-gray-700 text-base font-semibold mb-2">Property Address</label>
                 <AddressAutocomplete
                   value={formData.propertyAddress}
-                  onChange={({ value, reportId }) => {
-                    dispatch(updateDirectField(gasFormAction({ field: 'propertyAddress', value })));
-                    dispatch(updateDirectField(gasFormAction({ field: 'address_id', value: reportId })));
-                  }}
+                  onChange={handleAddressSelectAndChange}
+                  onSelect={handleAddressSelectAndChange}
                   style={{ height: '48px' }}
                   className="shadow-sm appearance-none border rounded-lg w-full py-3 px-4 text-gray-800 leading-tight focus:outline-none focus:ring-3 transition-all duration-200 text-lg border-gray-300 focus:ring-blue-400 focus:border-blue-400"
                 />

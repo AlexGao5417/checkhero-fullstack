@@ -82,30 +82,10 @@ const initialFormData = {
   smokeAlarmsWorking: false,
   nextSmokeAlarmCheckDate: '',
   smokeAlarmDetails: [
-    {
-        voltage: "120",
-        status: "Pass",
-        location: "Kitchen",
-        expiration: "2024-02-02"
-    },
-    {
-        voltage: "120",
-        status: "Pass",
-        location: "Kitchen",
-        expiration: "2024-02-02"
-    }
 ],
   observation: '',
   recommendation: '',
   imageAppendix: [
-    {
-        image: "https://placehold.co/600x400/FF5733/FFFFFF?text=Fault+Image+1",
-        description: "Kitchen"
-    },
-    {
-        image: "https://placehold.co/600x400/FF5733/FFFFFF?text=Fault+Image+1",
-        description: "Kitchen"
-    }
 ],
   electricalSafetyCheckCompletedBy: '',
   licenceNumber: '',
@@ -118,9 +98,9 @@ const initialFormData = {
 const gasFormInitialData = {
   agentName: "",
   agentId: null,
-  propertyAddress: "449 Mount Dandenong Road, Kilsyth",
+  propertyAddress: "",
   address_id: null,
-  dateOfInspection: "2024-02-02",
+  dateOfInspection: null,
   checksConducted: {
     gasSafetyCheckStatus: "Fail"
   },
@@ -132,7 +112,7 @@ const gasFormInitialData = {
     {
       observation: "",
       recommendation: "",
-      image: "https://placehold.co/600x400/FF5733/FFFFFF?text=Fault+Image+1"
+      image: ""
     }
   ],
   gasSafetyReportDetails: {
@@ -178,38 +158,18 @@ const gasFormInitialData = {
 };
 
 const smokeFormInitialData = {
-  propertyAddress: "449 Mount Dandenong Road, Kilsyth",
+  propertyAddress: "",
   address_id: null,
-  dateOfInspection: "2024-02-02",
+  dateOfInspection: null,
   inspectorDetails: {
-    inspectorName: "support@checkhero.com.au",
-    inspectorSignature: "https://placehold.co/600x400/FF5733/FFFFFF?text=Fault+Image+1"
+    inspectorName: "",
+    inspectorSignature: ""
   },
-  agentName: "John Doe",
+  agentName: "",
   agentId: null,
   smokeAlarmDetails: [
-      {
-          voltage: "120",
-          status: "Pass",
-          location: "Kitchen",
-          expiration: "2024-02-02"
-      },
-      {
-          voltage: "120",
-          status: "Pass",
-          location: "Kitchen",
-          expiration: "2024-02-02"
-      }
   ],
   imageAppendix: [
-      {
-          image: "https://placehold.co/600x400/FF5733/FFFFFF?text=Fault+Image+1",
-          description: "Kitchen"
-      },
-      {
-          image: "https://placehold.co/600x400/FF5733/FFFFFF?text=Fault+Image+1",
-          description: "Kitchen"
-      }
   ]
 };
 
