@@ -10,11 +10,10 @@ import { message } from 'antd';
  */
 export const uploadToS3 = async (file, onSuccess, onError) => {
   try {
-    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
     
     // Get presigned URL from backend
     const presignRes = await axios.get(
-      `${apiUrl}/reports/presigned-url/?content_type=${encodeURIComponent(file.type)}`
+      `/reports/presigned-url/?content_type=${encodeURIComponent(file.type)}`
     );
     const { upload_url, public_url } = presignRes.data;
     

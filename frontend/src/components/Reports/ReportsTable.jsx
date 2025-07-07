@@ -64,9 +64,8 @@ const ReportsTable = ({ onEditReport }) => {
     
     setLoading(true);
     setError(null);
-    const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
-    axios.get(`${apiUrl}/reports/`)
+    axios.get(`/reports/`)
       .then((res) => {
         setReports(res.data);
         setTotal(res.data.length);
@@ -132,9 +131,7 @@ const ReportsTable = ({ onEditReport }) => {
       cancelText: "No, Cancel",
       onOk: async () => {
         try {
-          const apiUrl =
-            import.meta.env.VITE_API_URL || "http://localhost:8000";
-          await axios.delete(`${apiUrl}/reports/delete/${record.id}`);
+          await axios.delete(`/reports/delete/${record.id}`);
           setReports(reports.filter((r) => r.id !== record.id));
           // You might want to show a success message here
         } catch (err) {

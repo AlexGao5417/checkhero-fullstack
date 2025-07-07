@@ -7,7 +7,6 @@ import { loginSuccess } from '../redux/authSlice';
 const { Title } = Typography;
 
 const AccountPage = () => {
-    const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
     const [form] = Form.useForm();
     const { user, token } = useSelector((state) => state.auth);
@@ -52,7 +51,7 @@ const AccountPage = () => {
                 payload.password = values.password;
             }
 
-            const response = await axios.put(`${API_BASE}/users/${user.id}`, payload, {
+            const response = await axios.put(`/users/${user.id}`, payload, {
                 headers: { Authorization: `Bearer ${token}` }
             });
 

@@ -75,7 +75,7 @@ const SmokeFormPage = () => {
     const fetchReportData = async () => {
       if (reportId) {
         try {
-          const res = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/reports/${reportId}`);
+          const res = await axios.get(`/reports/${reportId}`);
           const formData = res.data.form_data;
           dispatch(setFormData(smokeFormAction({ formData })));
           setReportData(res.data);
@@ -159,7 +159,7 @@ const SmokeFormPage = () => {
   const submitApproval = async (rewardAmount = null) => {
     setIsSubmitting(true);
     try {
-        await axios.put(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/reports/approve/${reportId}`, {
+        await axios.put(`/reports/approve/${reportId}`, {
             comment: comment,
             reward: rewardAmount
         });
@@ -177,8 +177,7 @@ const SmokeFormPage = () => {
   const handleDecline = async (comment) => {
     if (!reportId) return;
     try {
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-      await axios.put(`${apiUrl}/reports/decline/${reportId}`, { comment });
+      await axios.put(`/reports/decline/${reportId}`, { comment });
       message.success('Report declined successfully!');
       navigate('/reports');
     } catch (err) {
@@ -202,9 +201,8 @@ const SmokeFormPage = () => {
     // UPDATE logic
     if (reportId) {
       try {
-        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
         const payload = { form_data: formData, comment: comment };
-        await axios.put(`${apiUrl}/reports/update/${reportId}`, payload);
+        await axios.put(`/reports/update/${reportId}`, payload);
         setAlert({ visible: true, type: 'success', message: 'Report updated successfully!' });
       } catch (err) {
         setAlert({ visible: true, type: 'error', message: 'Failed to update report.' });
@@ -216,13 +214,12 @@ const SmokeFormPage = () => {
 
     // CREATE logic
     try {
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
       const payload = {
         form_data: formData,
         address: formData.propertyAddress,
         report_type_id: REPORT_TYPE_IDS[REPORT_TYPES.SMOKE],
       };
-      const res = await axios.post(`${apiUrl}/reports/create`, payload);
+      const res = await axios.post(`/reports/create`, payload);
       dispatch(resetForm(smokeFormAction()));
       setAlert({ visible: true, type: 'success', message: 'Report created successfully!' });
     } catch (err) {

@@ -31,8 +31,7 @@ const Sidebar = () => {
       if (user && user.user_type_id === USER_ROLES.AGENT) {
         setLoadingStatus(true);
         try {
-          const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-          const res = await axios.get(`${apiUrl}/agent/status`);
+          const res = await axios.get(`/agent/status`);
           setAgentStatus(res.data);
         } catch (error) {
           console.error("Failed to fetch agent status:", error);

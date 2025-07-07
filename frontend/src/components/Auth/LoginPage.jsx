@@ -27,7 +27,6 @@ const LoginPage = () => {
     const onFinish = async (values) => {
         setLoading(true);
         try {
-            const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
             const response = await axios.post(`/auth/login`, new URLSearchParams(values));
             const { access_token, user } = response.data;
             // Save token to Redux only

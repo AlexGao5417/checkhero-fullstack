@@ -33,7 +33,7 @@ export const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 export const API_ENDPOINTS = {
   login: '/auth/login',
   users: '/users',
-  agents: '/users?user_type_id=2',
+  agents: '/users/?user_type_id=2',
   addresses: '/agent/addresses',
   reports: '/reports',
   agentRewards: '/users/agent-rewards',

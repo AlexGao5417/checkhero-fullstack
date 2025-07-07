@@ -8,7 +8,6 @@ import { format } from 'date-fns';
 import { USER_ROLES } from '@utils/constants';
 
 const PAGE_SIZE = 10;
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 const statusColors = {
   pending: 'processing',
@@ -42,7 +41,7 @@ const WithdrawPage = () => {
   const fetchWithdrawals = async (page = 1) => {
     try {
       setLoading(true);
-      let url = isAdmin ? `${API_BASE}/agent/withdrawals?page=${page}&page_size=${PAGE_SIZE}` : `${API_BASE}/agent/withdrawals?page=${page}&page_size=${PAGE_SIZE}`;
+      let url = isAdmin ? `/agent/withdrawals?page=${page}&page_size=${PAGE_SIZE}` : `/agent/withdrawals?page=${page}&page_size=${PAGE_SIZE}`;
       if (isAdmin && agentNameFilter) {
         url += `&agent_name=${encodeURIComponent(agentNameFilter)}`;
       }
@@ -63,7 +62,7 @@ const WithdrawPage = () => {
   const fetchAgentStatus = async () => {
     if (isAdmin) return; // Admins don't have this status
     try {
-      const res = await axios.get(`${API_BASE}/agent/status`);
+      const res = await axios.get(`/agent/status`);
       setStatus(res.data);
     } catch (err) {
       notification.error({
@@ -89,7 +88,7 @@ const WithdrawPage = () => {
     setSubmitting(true);
     try {
       await axios.post(
-        `${API_BASE}/agent/withdraw`, 
+        `/agent/withdraw`, 
         { amount: values.amount, invoice_pdf: invoiceUrl }, 
         { headers: { 'Content-Type': 'application/json' } }
       );
@@ -118,7 +117,7 @@ const WithdrawPage = () => {
   const handleApproveDecline = async (isApproved) => {
     setSubmitting(true);
     try {
-        await axios.put(`${API_BASE}/users/withdrawals/${selectedRecord.id}/approve`, { is_approved: false });
+        await axios.put(`/users/withdrawals/${selectedRecord.id}/approve`, { is_approved: false });
         notification.success({ message: 'Withdrawal declined' });
         setIsReviewModalVisible(false);
         fetchWithdrawals(currentPage);
@@ -132,7 +131,7 @@ const WithdrawPage = () => {
   const handleConfirmApproval = async () => {
     setSubmitting(true);
     try {
-        await axios.put(`${API_BASE}/users/withdrawals/${selectedRecord.id}/approve`, { is_approved: true }, {
+        await axios.put(`/users/withdrawals/${selectedRecord.id}/approve`, { is_approved: true }, {
             headers: { Authorization: `Bearer ${token}` }
         });
         notification.success({ message: 'Withdrawal approved' });

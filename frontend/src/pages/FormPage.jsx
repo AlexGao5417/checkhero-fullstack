@@ -64,7 +64,7 @@ const FormPage = () => {
     const fetchReportData = async () => {
       if (reportId) {
         try {
-          const res = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/reports/${reportId}`);
+          const res = await axios.get(`/reports/${reportId}`);
           const formData = res.data.form_data;
           dispatch(setFormData(formAction({ formData })));
           setReportData(res.data);
@@ -130,7 +130,7 @@ const FormPage = () => {
   const submitApproval = async (rewardAmount = null) => {
     setIsSubmitting(true);
     try {
-        await axios.put(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/reports/approve/${reportId}`, {
+        await axios.put(`/reports/approve/${reportId}`, {
             comment: comment,
             reward: rewardAmount
         });
@@ -148,8 +148,7 @@ const FormPage = () => {
   const handleDecline = async (comment) => {
     if (!reportId) return;
     try {
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-      await axios.put(`${apiUrl}/reports/decline/${reportId}`, { comment });
+      await axios.put(`/reports/decline/${reportId}`, { comment });
       message.success('Report declined successfully!');
       navigate('/reports');
     } catch (err) {
@@ -169,13 +168,12 @@ const FormPage = () => {
     setAlert({ visible: false, type: '', message: '' });
 
     try {
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
       const payload = {
         form_data: formData,
         is_approved: actionType === ACTION_TYPES.APPROVE,
         comment: comment,
       };
-      await axios.put(`${apiUrl}/reports/update/${reportId}`, payload);
+      await axios.put(`/reports/update/${reportId}`, payload);
       setAlert({ visible: true, type: 'success', message: `Report ${actionType}d successfully!` });
       dispatch(resetForm(formAction()));
       setTimeout(() => {
@@ -214,9 +212,8 @@ const FormPage = () => {
     // UPDATE logic if reportId exists
     if (reportId) {
       try {
-        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
         const payload = { form_data: formData };
-        await axios.put(`${apiUrl}/reports/update/${reportId}`, payload);
+        await axios.put(`/reports/update/${reportId}`, payload);
         setAlert({ visible: true, type: 'success', message: 'Report updated successfully!' });
         setTimeout(() => {
           setAlert({ visible: false, type: '', message: '' });
@@ -233,13 +230,12 @@ const FormPage = () => {
 
     // CREATE logic if no reportId
     try {
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
       const payload = {
         form_data: formData,
         address: formData.propertyAddress,
         report_type_id: REPORT_TYPE_IDS[REPORT_TYPES.ELECTRICITY_AND_SMOKE],
       };
-      const res = await axios.post(`${apiUrl}/reports/create`, payload);
+      const res = await axios.post(`/reports/create`, payload);
       if (res.status === 200 || res.status === 201) {
         dispatch(resetForm(formAction()));
         setAlert({ visible: true, type: 'success', message: 'Report created successfully!' });

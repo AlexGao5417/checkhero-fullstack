@@ -13,7 +13,6 @@ const userTypes = [
 ];
 
 const PAGE_SIZE = 10;
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 const UserManagement = () => {
   const [users, setUsers] = useState([]);
@@ -40,7 +39,7 @@ const UserManagement = () => {
       if (filters.username) params.username = filters.username;
       if (filters.email) params.email = filters.email;
       if (filters.user_type) params.user_type_id = filters.user_type;
-      const res = await axios.get(`${API_BASE}/users/`, { params });
+      const res = await axios.get(`/users/`, { params });
       setUsers(res.data.map(u => ({ ...u, key: u.id, userType: u.user_type })));
       setTotal(res.data.length < PAGE_SIZE && page === 1 ? res.data.length : page * PAGE_SIZE + (res.data.length === PAGE_SIZE ? 1 : 0));
     } catch (err) {
@@ -114,7 +113,7 @@ const UserManagement = () => {
 
   const handleDelete = async (key) => {
     try {
-      await axios.delete(`${API_BASE}/users/${key}`);
+      await axios.delete(`/users/${key}`);
       notification.success({ message: 'User deleted' });
       fetchUsers(currentPage, {
         username: searchUsername,
@@ -132,7 +131,7 @@ const UserManagement = () => {
 
       if (isEdit && editingUser) {
         // Use the admin endpoint for edits
-        const url = `${API_BASE}/users/admin/${editingUser.id}`;
+        const url = `/users/admin/${editingUser.id}`;
         const payload = { ...values };
 
         if (editingUser.user_type_id !== USER_ROLES.AGENT) {
@@ -143,7 +142,7 @@ const UserManagement = () => {
 
       } else {
         // Use the creation endpoint for new users
-        await axios.post(`${API_BASE}/users/`, {
+        await axios.post(`/users/`, {
           ...values,
         });
         message.success('User created successfully');

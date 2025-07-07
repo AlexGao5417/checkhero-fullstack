@@ -80,7 +80,7 @@ const GasFormPage = () => {
     const fetchReportData = async () => {
       if (reportId) {
         try {
-          const res = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/reports/${reportId}`);
+          const res = await axios.get(`/reports/${reportId}`);
           const formData = res.data.form_data;
           dispatch(setFormData(gasFormAction({ formData })));
           setReportData(res.data);
@@ -187,7 +187,7 @@ const GasFormPage = () => {
   const submitApproval = async (rewardAmount = null) => {
     setIsSubmitting(true);
     try {
-        await axios.put(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/reports/approve/${reportId}`, {
+        await axios.put(`/reports/approve/${reportId}`, {
             comment: comment,
             reward: rewardAmount
         });
@@ -205,8 +205,7 @@ const GasFormPage = () => {
   const handleDecline = async (comment) => {
     if (!reportId) return;
     try {
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-      await axios.put(`${apiUrl}/reports/decline/${reportId}`, { comment });
+      await axios.put(`/reports/decline/${reportId}`, { comment });
       message.success('Report declined successfully!');
       navigate('/reports');
     } catch (err) {
@@ -231,9 +230,8 @@ const GasFormPage = () => {
 
     if (reportId) {
       try {
-        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
         const payload = { form_data: formData, comment: comment };
-        await axios.put(`${apiUrl}/reports/update/${reportId}`, payload);
+        await axios.put(`/reports/update/${reportId}`, payload);
         message.success('Report updated successfully!');
       } catch (err) {
         message.error('Failed to update report.');
@@ -244,13 +242,12 @@ const GasFormPage = () => {
     }
 
     try {
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
       const payload = {
         form_data: formData,
         address: formData.propertyAddress,
         report_type_id: REPORT_TYPE_IDS[REPORT_TYPES.GAS],
       };
-      const res = await axios.post(`${apiUrl}/reports/create`, payload);
+      const res = await axios.post(`/reports/create`, payload);
       dispatch(resetForm(gasFormAction()));
       message.success('Report created successfully!');
     } catch (err) {

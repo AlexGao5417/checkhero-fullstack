@@ -1,7 +1,5 @@
-const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-
 export const downloadPdf = async (formData) => {
-  const response = await fetch(`${apiUrl}/reports/create`, {
+  const response = await fetch(`/reports/create`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
