@@ -184,7 +184,7 @@ const PropertyManagementPage = () => {
         title: 'Action',
         key: 'action',
         render: (_, record) => (
-          <Button danger onClick={() => handleRemoveAddress(agent.id, record.address_id)} disabled={deletingAddressId === record.address_id}>
+          <Button danger onClick={() => handleRemoveAddress(agent.id, record.id)} disabled={deletingAddressId === record.address_id}>
             {deletingAddressId === record.address_id ? 'Deleting...' : 'Remove'}
           </Button>
         ),
@@ -236,8 +236,8 @@ const PropertyManagementPage = () => {
       {
         title: 'Action',
         key: 'action',
-        render: (_, record) => (
-          <Button danger onClick={() => handleRemoveAddress(user.id, record.address_id)} disabled={deletingAddressId === record.address_id}>
+        render: (id, record) => (
+          <Button danger onClick={() => handleRemoveAddress(user.id, record.id)} disabled={deletingAddressId === record.address_id}>
             {deletingAddressId === record.address_id ? 'Deleting...' : 'Remove'}
           </Button>
         ),

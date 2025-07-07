@@ -34,6 +34,7 @@ const WithdrawPage = () => {
   const [agentNameFilter, setAgentNameFilter] = useState('');
 
   const user = useSelector(state => state.auth.user);
+  const { token } = useSelector(state => state.auth);
   const isAdmin = user?.user_type_id === USER_ROLES.ADMIN;
 
   const maxWithdrawalAmount = status.balance - status.pending_withdrawal;
@@ -84,12 +85,12 @@ const WithdrawPage = () => {
     setIsModalVisible(true);
   };
 
-  const handleWithdraw = async (values) => {
+  const handleWithdraw = async (values, invoiceUrl) => {
     setSubmitting(true);
     try {
       await axios.post(
         `${API_BASE}/agent/withdraw`, 
-        { amount: values.amount, invoice_pdf: values.invoice_pdf }, 
+        { amount: values.amount, invoice_pdf: invoiceUrl }, 
         { headers: { 'Content-Type': 'application/json' } }
       );
       notification.success({ message: 'Withdrawal request submitted' });
@@ -131,7 +132,6 @@ const WithdrawPage = () => {
   const handleConfirmApproval = async () => {
     setSubmitting(true);
     try {
-        const token = localStorage.getItem('token');
         await axios.put(`${API_BASE}/users/withdrawals/${selectedRecord.id}/approve`, { is_approved: true }, {
             headers: { Authorization: `Bearer ${token}` }
         });
@@ -143,7 +143,7 @@ const WithdrawPage = () => {
     } finally {
         setSubmitting(false);
     }
-  }
+  };
 
   const pdfUploadProps = {
     name: 'file',
@@ -223,7 +223,7 @@ const WithdrawPage = () => {
       
       {/* Agent withdrawal modal */}
       <Modal open={isModalVisible} title="Request a Withdrawal" onCancel={() => setIsModalVisible(false)} footer={null}>
-        <Form form={form} layout="vertical" onFinish={handleWithdraw} initialValues={{ amount: maxWithdrawalAmount }}>
+        <Form form={form} layout="vertical" onFinish={values => handleWithdraw(values, invoiceUrl)} initialValues={{ amount: maxWithdrawalAmount }}>
             <p>Your current available balance is <strong>${maxWithdrawalAmount.toFixed(0)}</strong>.</p>
             <Form.Item name="amount" label="Amount to Withdraw" rules={[{ required: true, message: 'Please input the amount!' }, { type: 'number', min: 0.01 }, { type: 'number', max: maxWithdrawalAmount }]}>
                 <InputNumber style={{ width: '100%' }} precision={0} min={1} max={maxWithdrawalAmount} />

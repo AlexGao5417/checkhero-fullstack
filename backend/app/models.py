@@ -11,12 +11,12 @@ from sqlalchemy.dialects.postgresql import UUID
 Base = declarative_base()
 class UserType(Base):
     __tablename__ = "user_types"
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, unique=True, index=True, nullable=False)
+    id = Column(Integer, primary_key=True, unique=True, index=True, nullable=False)
     type = Column(String, unique=True, nullable=False)  # admin, user, agent
 
 class ReportType(Base):
     __tablename__ = "report_types"
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, unique=True, index=True, nullable=False)
+    id = Column(Integer, primary_key=True, unique=True, index=True, nullable=False)
     type = Column(String, unique=True, nullable=False) # smoke, electricityAndSmoke, gas
 
 class User(Base):
@@ -27,7 +27,7 @@ class User(Base):
     hashed_password = Column(String, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
     phone = Column(String, nullable=True)
-    user_type_id = Column(UUID(as_uuid=True), ForeignKey('user_types.id'), nullable=True)
+    user_type_id = Column(Integer, ForeignKey('user_types.id'), nullable=True)
     is_affiliate = Column(Boolean, nullable=True, default=False)
 
     user_type = relationship("UserType")
@@ -52,7 +52,7 @@ class Report(Base):
     reviewer = relationship("User", foreign_keys=[reviewer_id], back_populates="reviewed_reports")
     form_data = Column(SQLiteJSON)
     pdf_url = Column(String, nullable=True)
-    report_type_id = Column(UUID(as_uuid=True), ForeignKey("report_types.id"))
+    report_type_id = Column(Integer, ForeignKey("report_types.id"))
     report_type = relationship("ReportType")
     agent_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
     agent = relationship("User", foreign_keys=[agent_id], back_populates="agent_reports")
@@ -97,7 +97,7 @@ class AddressReport(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, unique=True, index=True, nullable=False)
     address_id = Column(UUID(as_uuid=True), ForeignKey('addresses.id'), nullable=False)
     last_report_id = Column(UUID(as_uuid=True), ForeignKey('reports.id'), nullable=True)
-    last_inspect_type_id = Column(UUID(as_uuid=True), ForeignKey('report_types.id'), nullable=True)
+    last_inspect_type_id = Column(Integer, ForeignKey('report_types.id'), nullable=True)
     last_inspect_time = Column(DateTime, nullable=True)
 
 class AuditLog(Base):
@@ -106,7 +106,7 @@ class AuditLog(Base):
     user_id = Column(UUID(as_uuid=True), ForeignKey('users.id'), nullable=False)
     action = Column(String, nullable=False)
     target_type = Column(String, nullable=True)
-    target_id = Column(Integer, nullable=True)
+    target_id = Column(UUID(as_uuid=True), nullable=True)
     timestamp = Column(DateTime, default=datetime.utcnow)
 
     user = relationship("User")

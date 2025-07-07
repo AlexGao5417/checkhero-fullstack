@@ -92,9 +92,9 @@ export const initialFormData = {
 // Simple test to verify the utility (for development only)
 if (typeof window !== 'undefined') {
   if (initialFormData && typeof initialFormData === 'object' && 'propertyAddress' in initialFormData) {
-    console.log('[CheckHero] initialFormData utility loaded and structure looks correct.');
+    console.log('[aiosafetycheck] initialFormData utility loaded and structure looks correct.');
   } else {
-    console.error('[CheckHero] initialFormData utility structure is invalid!');
+    console.error('[aiosafetycheck] initialFormData utility structure is invalid!');
   }
 }
 

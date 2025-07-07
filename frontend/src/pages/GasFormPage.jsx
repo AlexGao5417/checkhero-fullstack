@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import StepWrapper from '@components/Form/StepWrapper';
 import ImageDropzone from '@components/Form/ImageDropzone';
@@ -40,6 +40,7 @@ import { generateFormPayload } from '@utils/formInitialState';
 import { USER_ROLES, REPORT_TYPES, REPORT_TYPE_IDS } from '@utils/constants';
 import AgentSelect from '@components/Form/AgentSelect';
 import AddressAutocomplete from '@components/Form/AddressAutocomplete';
+import FormFooter from '@components/Form/FormFooter';
 
 const { TextArea } = Input;
 const { Option } = Select;
@@ -58,6 +59,9 @@ const GasFormPage = () => {
   const [reportData, setReportData] = useState(null);
   const [isRewardModalVisible, setIsRewardModalVisible] = useState(false);
   const [reward, setReward] = useState(0);
+  const [addressError, setAddressError] = useState('');
+  const [addressErrorActive, setAddressErrorActive] = useState(false);
+  const addressErrorTimerRef = useRef();
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -153,7 +157,19 @@ const GasFormPage = () => {
     dispatch(updateDirectField(gasFormAction({ field: 'faultsRemedialActions', value: updatedActions })));
   };
 
-  const handleNext = () => dispatch(setStep(gasFormAction({ step: Math.min(currentStep + 1, totalSteps) })));
+  const handleNext = () => {
+    if (currentStep === 1 && (!formData.propertyAddress || formData.propertyAddress.trim() === '')) {
+      setAddressError('Address is required');
+      setAddressErrorActive(true);
+      if (addressErrorTimerRef.current) clearTimeout(addressErrorTimerRef.current);
+      addressErrorTimerRef.current = setTimeout(() => {
+        setAddressError('');
+        setAddressErrorActive(false);
+      }, 3000);
+      return;
+    }
+    dispatch(setStep(gasFormAction({ step: Math.min(currentStep + 1, totalSteps) })));
+  };
   const handleBack = () => dispatch(setStep(gasFormAction({ step: Math.max(currentStep - 1, 1) })));
 
   const handleClearForm = () => {
@@ -186,8 +202,16 @@ const GasFormPage = () => {
     }
   };
   
-  const handleDecline = () => {
-    console.log("Deny action triggered");
+  const handleDecline = async (comment) => {
+    if (!reportId) return;
+    try {
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+      await axios.put(`${apiUrl}/reports/decline/${reportId}`, { comment });
+      message.success('Report declined successfully!');
+      navigate('/reports');
+    } catch (err) {
+      message.error('Failed to decline report.');
+    }
   };
 
   const handleRewardModalOk = () => {
@@ -253,9 +277,9 @@ const GasFormPage = () => {
                   value={formData.propertyAddress}
                   onChange={handleAddressSelectAndChange}
                   onSelect={handleAddressSelectAndChange}
-                  style={{ height: '48px' }}
-                  className="shadow-sm appearance-none border rounded-lg w-full py-3 px-4 text-gray-800 leading-tight focus:outline-none focus:ring-3 transition-all duration-200 text-lg border-gray-300 focus:ring-blue-400 focus:border-blue-400"
+                  style={{ height: '48px', borderColor: addressErrorActive ? '#ff4d4f' : undefined, boxShadow: addressErrorActive ? '0 0 0 2px #ff4d4f33' : undefined }}
                 />
+                {addressError && <div style={{ color: '#ff4d4f', marginTop: 4 }}>{addressError}</div>}
               </div>
               <div>
                 <label className="block text-gray-700 text-base font-semibold mb-2">Agent Name</label>
@@ -611,33 +635,23 @@ const GasFormPage = () => {
         <Spin spinning={isSubmitting} tip="Submitting...">
           <form>
             {renderFormStep()}
-            <div className="flex justify-between mt-8">
-              <div>
-                <button type="button" onClick={handleBack} disabled={currentStep === 1} className="px-6 py-2 bg-gray-300 text-gray-800 rounded-md hover:bg-gray-400 disabled:opacity-50">Back</button>
-                <button type="button" onClick={handleClearForm} className="ml-4 px-6 py-2 bg-yellow-500 text-white rounded-md hover:bg-yellow-600">Clear All</button>
-              </div>
-              <div>
-                {currentStep === totalSteps ? (
-                  user.user_type_id === USER_ROLES.ADMIN ? (
-                    <div className="flex gap-4">
-                      <button type="button" onClick={handleDecline} className="px-6 py-2 bg-red-600 text-white rounded-md hover:bg-red-700">Decline</button>
-                      <button type="button" onClick={handleApprove} className="px-6 py-2 bg-green-600 text-white rounded-md hover:bg-green-700">Approve</button>
-                    </div>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={handleSubmit}
-                      disabled={isSubmitting}
-                      className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
-                    >
-                      {isSubmitting ? (user.user_type_id === USER_ROLES.ADMIN ? 'Updating...' : 'Submitting...') : (user.user_type_id === USER_ROLES.ADMIN ? 'Update' : 'Submit')}
-                    </button>
-                  )
-                ) : (
-                  <button type="button" onClick={handleNext} className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">Next</button>
-                )}
-              </div>
-            </div>
+            <FormFooter
+              currentStep={currentStep}
+              totalSteps={totalSteps}
+              onBack={handleBack}
+              onNext={handleNext}
+              onClear={handleClearForm}
+              onSubmit={handleSubmit}
+              isSubmitting={isSubmitting}
+              isLastStep={currentStep === totalSteps}
+              isAdmin={user && user.user_type_id === USER_ROLES.ADMIN}
+              reportId={reportId}
+              onApprove={handleApprove}
+              onDecline={handleDecline}
+              user={user}
+              submitText={reportId ? 'Update' : 'Submit'}
+              updateText={reportId ? 'Updating...' : 'Submitting...'}
+            />
           </form>
         </Spin>
         {error && <p className="text-red-500 text-center mt-4">{error}</p>}

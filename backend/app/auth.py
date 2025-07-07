@@ -26,7 +26,8 @@ class UserOut(BaseModel):
     username: str
     email: EmailStr
     phone: Optional[str]
-    user_type_id: UUID
+    user_type_id: int
+    is_affiliate: Optional[bool]
 
     class Config:
         orm_mode = True
@@ -36,7 +37,7 @@ class UserCreate(BaseModel):
     email: str
     password: str
     phone: str = None
-    user_type_id: UUID
+    user_type_id: int
 
 class Token(BaseModel):
     access_token: str
@@ -96,7 +97,7 @@ def register(user: UserCreate, db: Session = Depends(database.get_db), response:
     log_audit(db, user_id=new_user.id, action=constants.actionTypes['register'], target_type=constants.targetTypes['user'], target_id=new_user.id)
     token_data = {
         "sub": new_user.email,
-        "user_id": new_user.id,
+        "user_id": str(new_user.id),
         "user_type_id": new_user.user_type_id
     }
     access_token = create_access_token(data=token_data)
@@ -119,7 +120,7 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
         raise HTTPException(status_code=401, detail="Incorrect email or password")
     token_data = {
         "sub": user.email,
-        "user_id": user.id,
+        "user_id": str(user.id),
         "user_type_id": user.user_type_id
     }
     access_token = create_access_token(data=token_data)
@@ -134,6 +135,11 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
             max_age=REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60
         )
     return {"access_token": access_token, "token_type": "bearer", "user": user}
+
+@router.post("/logout")
+def logout(response: Response):
+    response.delete_cookie("refresh_token")
+    return {"msg": "Logged out"}
 
 @router.post("/refresh")
 def refresh_token(request: Request, response: Response, refresh_token: str = Cookie(None)):
@@ -151,6 +157,6 @@ def refresh_token(request: Request, response: Response, refresh_token: str = Coo
     except JWTError:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token")
     # Issue new access token
-    token_data = {"sub": email, "user_id": user_id, "user_type_id": user_type_id}
+    token_data = {"sub": email, "user_id": str(user_id), "user_type_id": user_type_id}
     access_token = create_access_token(data=token_data)
     return {"access_token": access_token, "user": {"id": user_id, "email": email, "user_type_id": user_type_id}} 

@@ -20,7 +20,7 @@ class UserOut(BaseModel):
     username: str
     email: EmailStr
     phone: Optional[str]
-    user_type_id: Optional[UUID]
+    user_type_id: Optional[int]
     user_type: Optional[str] = None  # For display
     is_affiliate: Optional[bool] = None
     balance: Optional[float] = None
@@ -32,7 +32,7 @@ class UserCreate(BaseModel):
     email: EmailStr
     password: str
     phone: Optional[str] = None
-    user_type_id: UUID
+    user_type_id: int
 
 class UserUpdate(BaseModel):
     username: Optional[str]
@@ -43,9 +43,8 @@ class UserUpdate(BaseModel):
 
 class AdminUserUpdate(BaseModel):
     username: Optional[str]
-    email: Optional[EmailStr]
     phone: Optional[str]
-    user_type_id: Optional[UUID]
+    user_type_id: Optional[int]
     is_affiliate: Optional[bool] = None
 
 class WithdrawRewardAdminOut(BaseModel):
@@ -75,7 +74,7 @@ def list_users(
     limit: int = 10,
     username: Optional[str] = Query(None),
     email: Optional[str] = Query(None),
-    user_type_id: Optional[UUID] = Query(None),
+    user_type_id: Optional[int] = Query(None),
     db: Session = Depends(database.get_db)
 ):
     query = db.query(models.User)

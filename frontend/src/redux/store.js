@@ -12,7 +12,7 @@ const rootReducer = combineReducers({
 const persistConfig = {
   key: 'root',
   storage,
-  whitelist: ['auth', 'form'], // Persist both auth and form slices
+  whitelist: ['auth', 'forms'], // Persist both auth and form slices
 };
 
 const persistedReducer = persistReducer(persistConfig, rootReducer);

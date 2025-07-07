@@ -48,7 +48,12 @@ const Sidebar = () => {
     fetchAgentStatus();
   }, [user]);
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      await axios.post('/auth/logout', {}, { withCredentials: true });
+    } catch (e) {
+      // Ignore errors, just ensure state is cleared
+    }
     dispatch(logout());
     navigate('/login');
   };
@@ -66,7 +71,7 @@ const Sidebar = () => {
     { key: 'reports', icon: <FileTextOutlined />, label: <Link to="/reports">Reports</Link> },
     { key: 'property-management', icon: <HomeOutlined />, label: <Link to="/property-management">Property Management</Link> },
     isAdmin && { key: 'users', icon: <TeamOutlined />, label: <Link to="/users">User Management</Link> },
-    (isAgent && user.isAffiliate || isAdmin) && { key: 'withdraw', icon: <DollarCircleOutlined />, label: <Link to="/withdraw">Withdrawals</Link> },
+    (isAgent && user.is_affiliate || isAdmin) && { key: 'withdraw', icon: <DollarCircleOutlined />, label: <Link to="/withdraw">Withdrawals</Link> },
     isAdmin && { key: 'agent-rewards', icon: <DollarCircleOutlined />, label: <Link to="/agent-rewards">Agent Rewards</Link> },
     (isAdmin || isElectrician) && { 
       key: 'forms', 

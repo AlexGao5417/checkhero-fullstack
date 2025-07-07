@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Query, HTTPException, Body
+from fastapi import APIRouter, Depends, Query, HTTPException, Body, Response
 from sqlalchemy.orm import Session, joinedload
 from app import models, database, checkhero, auth
 import boto3
@@ -54,7 +54,7 @@ class ReportOut(BaseModel):
     address_id: UUID
     publisher: str
     publisher_id: UUID
-    report_type_id: UUID
+    report_type_id: int
     created_date: Optional[datetime]
     review_date: Optional[datetime]
     status: str
@@ -73,7 +73,7 @@ class ReportOut(BaseModel):
 class ReportCreate(BaseModel):
     form_data: dict
     address: str
-    report_type_id: UUID
+    report_type_id: int
 
 class ReportUpdate(BaseModel):
     form_data: Optional[dict] = None
@@ -82,6 +82,9 @@ class ReportUpdate(BaseModel):
 class ApproveReportRequest(BaseModel):
     comment: Optional[str]
     reward: Optional[float]
+
+class DeclineReportRequest(BaseModel):
+    comment: Optional[str]
 
 @router.get("/", response_model=List[ReportOut])
 def get_reports(
@@ -204,7 +207,11 @@ def create_report(report_data: ReportCreate, db: Session = Depends(database.get_
     form_data = report_data.form_data
     address = form_data.get("propertyAddress") or report_data.address
     address_id = form_data.get("address_id")
-    agent_id = form_data.get("agent_id")
+    agent_id = form_data.get("agentId")
+
+    # Address validation
+    if not address or not str(address).strip():
+        raise HTTPException(status_code=400, detail="Address is required.")
 
     # If address_id is missing but address is present, insert or get address
     if address and not address_id:
@@ -218,14 +225,15 @@ def create_report(report_data: ReportCreate, db: Session = Depends(database.get_
             db.refresh(address_obj)
         address_id = address_obj.id
         form_data["address_id"] = address_id
+        
+        # If agent_id is present and address_id is missing (i.e., new address), link agent and address
+        if agent_id:
+            # Check if link already exists
+            link = db.query(models.AddressAgent).filter_by(address_id=address_id, agent_id=agent_id).first()
+            if not link:
+                db.add(models.AddressAgent(address_id=address_id, agent_id=agent_id))
+                db.commit()
 
-    # If agent_id is present and address_id is missing (i.e., new address), link agent and address
-    if agent_id and address_id:
-        # Check if link already exists
-        link = db.query(models.AddressAgent).filter_by(address_id=address_id, agent_id=agent_id).first()
-        if not link:
-            db.add(models.AddressAgent(address_id=address_id, agent_id=agent_id))
-            db.commit()
 
     temp_filename = f"/tmp/{uuid.uuid4()}.pdf"
     checkhero.generate_pdf_dispatcher(form_data, report_data.report_type_id, temp_filename)
@@ -285,7 +293,7 @@ def approve_report(report_id: UUID, request_data: ApproveReportRequest, db: Sess
         raise HTTPException(status_code=404, detail="Report not found")
 
     db_report.status = "approved"
-    db_report.review_date = datetime.utcnow()
+    db_report.review_date = datetime.now(timezone.utc)
     db_report.reviewer_id = current_user.id
     if request_data.comment:
         db_report.comment = request_data.comment
@@ -317,7 +325,6 @@ def approve_report(report_id: UUID, request_data: ApproveReportRequest, db: Sess
     review_date = db_report.created_date
     # Ensure review_date is a datetime object
     if isinstance(review_date, str):
-        from datetime import datetime
         review_date = datetime.fromisoformat(review_date)
     if address_id and report_type_id:
         address_report = db.query(models.AddressReport).filter_by(address_id=address_id, last_inspect_type_id=report_type_id).first()
@@ -334,6 +341,26 @@ def approve_report(report_id: UUID, request_data: ApproveReportRequest, db: Sess
             db.add(address_report)
         db.commit()
 
+    return get_report(report_id, db, current_user)
+
+@router.put("/decline/{report_id}", response_model=ReportOut)
+def decline_report(report_id: UUID, request_data: DeclineReportRequest, db: Session = Depends(database.get_db), current_user: models.User = Depends(auth.get_current_user)):
+    if current_user.user_type_id != 1: # ADMIN
+        raise HTTPException(status_code=403, detail="Only admins can decline reports.")
+
+    db_report = db.query(models.Report).filter(models.Report.id == report_id).first()
+    if not db_report:
+        raise HTTPException(status_code=404, detail="Report not found")
+
+    db_report.status = "declined"
+    db_report.review_date = datetime.utcnow()
+    db_report.reviewer_id = current_user.id
+    if request_data.comment:
+        db_report.comment = request_data.comment
+
+    db.commit()
+    db.refresh(db_report)
+    log_audit(db, user_id=current_user.id, action=constants.actionTypes['decline'], target_type=constants.targetTypes['report'], target_id=report_id)
     return get_report(report_id, db, current_user)
 
 @router.delete("/delete/{report_id}")

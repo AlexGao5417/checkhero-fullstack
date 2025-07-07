@@ -163,6 +163,12 @@ const ReportsTable = ({ onEditReport }) => {
       key: "publisher",
     },
     {
+      title: "Agent",
+      dataIndex: "agent",
+      key: "agent",
+      render: (agent) => agent || '',
+    },
+    {
       title: "Created Date",
       dataIndex: "created_date",
       key: "created_date",

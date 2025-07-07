@@ -15,6 +15,7 @@ actionTypes = {
     'create': 'CREATE',
     'update': 'UPDATE',
     'approve': 'APPROVE',
+    'decline': 'DECLINE',
     'delete': 'DELETE',
     'login': 'LOGIN',
     'register': 'REGISTER',

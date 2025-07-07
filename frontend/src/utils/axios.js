@@ -18,8 +18,7 @@ axiosInstance.interceptors.request.use(
       const state = store.getState();
       token = state.auth?.token;
     } catch (e) {
-      // Fallback to localStorage if Redux is not available (SSR safety)
-      token = localStorage.getItem('token');
+      token = null;
     }
     if (token) {
       config.headers['Authorization'] = `Bearer ${token}`;
@@ -29,6 +28,8 @@ axiosInstance.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
+const skipRefreshEndpoints = ['/auth/login', '/auth/register', '/auth/refresh', '/auth/logout'];
+
 axiosInstance.interceptors.response.use(
   response => response,
   async error => {
@@ -36,7 +37,8 @@ axiosInstance.interceptors.response.use(
     if (
       error.response &&
       error.response.status === 401 &&
-      !originalRequest._retry
+      !originalRequest._retry &&
+      !skipRefreshEndpoints.includes(originalRequest.url)
     ) {
       originalRequest._retry = true;
       try {
@@ -44,7 +46,6 @@ axiosInstance.interceptors.response.use(
         const res = await axios.post(`${apiUrl}/auth/refresh`, {}, { withCredentials: true });
         const { access_token, user } = res.data;
         store.dispatch(loginSuccess({ user, token: access_token }));
-        localStorage.setItem('token', access_token);
         originalRequest.headers['Authorization'] = `Bearer ${access_token}`;
         return axiosInstance(originalRequest);
       } catch (refreshError) {

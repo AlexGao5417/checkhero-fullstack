@@ -5,7 +5,6 @@ from . import models, database, auth, constants
 from pydantic import BaseModel
 from typing import Optional, List
 from datetime import datetime
-from app.constants import AGENT, DRAFT, PENDING, DENIED, APPROVED
 from app.utils import log_audit
 from uuid import UUID
 
@@ -66,11 +65,12 @@ class AgentStatusOut(BaseModel):
         orm_mode = True
 
 class AgentAddressOut(BaseModel):
+    id: UUID
     address_id: UUID
     address: str
     agent_username: str
     last_inspect_time: Optional[datetime] = None
-    last_inspect_type_id: Optional[UUID] = None
+    last_inspect_type_id: Optional[int] = None
     last_report_id: Optional[UUID] = None
     class Config:
         orm_mode = True
@@ -138,7 +138,7 @@ def add_address_to_agent(request: AddressAgentCreate, db: Session = Depends(data
             other_agent = db.query(models.User).filter(models.User.id == existing_link.agent_id).first()
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail={
                 "message": "This address is already assigned to another agent, please remove the existing association first",
-                "agent_id": other_agent.id if other_agent else None,
+                "agent_id": str(other_agent.id) if other_agent else None,
                 "agent_username": other_agent.username if other_agent else None
             })
 
@@ -188,7 +188,7 @@ def get_withdrawals(
     agent_name: str = Query(None, min_length=1)
 ):
     query = db.query(models.WithdrawReward).options(joinedload(models.WithdrawReward.agent))
-    if current_user.user_type_id == AGENT:
+    if current_user.user_type_id == constants.AGENT:
         query = query.filter(models.WithdrawReward.agent_id == current_user.id)
     elif current_user.user_type_id == constants.ADMIN:
         if agent_name:
@@ -204,7 +204,7 @@ def get_withdrawals(
 
 @router.post("/withdraw")
 def request_withdrawal(request: WithdrawRequest, db: Session = Depends(database.get_db), current_user: models.User = Depends(auth.get_current_user)):
-    if current_user.user_type_id != AGENT:
+    if current_user.user_type_id != constants.AGENT:
         raise HTTPException(status_code=403, detail="User is not an agent")
 
     if request.amount <= 0:
@@ -219,7 +219,7 @@ def request_withdrawal(request: WithdrawRequest, db: Session = Depends(database.
     new_withdrawal = models.WithdrawReward(
         agent_id=current_user.id,
         amount=request.amount,
-        status=PENDING,
+        status=constants.PENDING,
         submit_datetime=datetime.utcnow(),
         invoice_pdf=request.invoice_pdf
     )
@@ -231,7 +231,7 @@ def request_withdrawal(request: WithdrawRequest, db: Session = Depends(database.
 
 @router.get("/status", response_model=AgentStatusOut)
 def get_agent_status(db: Session = Depends(database.get_db), current_user: models.User = Depends(auth.get_current_user)):
-    if current_user.user_type_id != AGENT:
+    if current_user.user_type_id != constants.AGENT:
         raise HTTPException(status_code=403, detail="User is not an agent")
 
     if not current_user.is_affiliate:
@@ -312,6 +312,7 @@ def get_agent_addresses(agent_id: UUID, db: Session = Depends(database.get_db)):
         addr = link.address
         ar = report_map.get(link.address_id)
         result.append(AgentAddressOut(
+            id=link.id,
             address_id=addr.id,
             address=addr.address,
             agent_username=agent.username,

@@ -12,7 +12,7 @@ const userTypes = [
   { value: USER_ROLES.USER, label: 'User' },
 ];
 
-const PAGE_SIZE = 5;
+const PAGE_SIZE = 10;
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 const UserManagement = () => {
@@ -282,6 +282,9 @@ const UserManagement = () => {
         destroyOnHidden
       >
         <Form form={form} layout="vertical" name="user_form" initialValues={{ is_affiliate: false }}>
+            {!isEdit && <Form.Item name="email" label="Email" rules={[{ required: true, message: 'Please input the email!' }]}>
+                <Input />
+            </Form.Item>}
             <Form.Item name="username" label="Fullname" rules={[{ required: true, message: 'Please input the username!' }]}>
                 <Input />
             </Form.Item>
